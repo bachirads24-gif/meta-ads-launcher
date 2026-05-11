@@ -272,7 +272,11 @@ export default function Home() {
   return (
     <main className="min-h-screen max-w-3xl mx-auto p-6 space-y-6">
       <header className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-semibold">Lanceur de campagnes Meta</h1>
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="" className="w-14 h-14" />
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">Lanceur de campagnes Meta</h1>
+        </div>
         <nav className="flex items-center gap-4 text-sm">
           {me?.isAdmin && (
             <>
