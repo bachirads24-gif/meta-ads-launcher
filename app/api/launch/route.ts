@@ -1,5 +1,5 @@
 import { del } from "@vercel/blob";
-import { getBrand } from "@/lib/brands";
+import { getBrandWithToken } from "@/lib/brands";
 import { uploadVideo, waitForVideoReady, getVideoThumbnailUrl } from "@/lib/meta/videos";
 import { createCampaign } from "@/lib/meta/campaigns";
 import { createAdSet } from "@/lib/meta/adsets";
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   const params = (await req.json()) as RunParams;
   if (!params.video) return new Response("No video provided", { status: 400 });
 
-  const brand = await getBrand(params.brandId);
+  const brand = await getBrandWithToken(params.brandId);
   if (!brand) return new Response("Marque introuvable", { status: 400 });
 
   const v = params.video;
@@ -62,6 +62,20 @@ export async function POST(req: Request) {
     async start(controller) {
       const send = (e: Event) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
 
+      if (!brand.accessToken) {
+        send({
+          type: "video-error",
+          videoName,
+          error: "Token Meta non configuré pour cette marque",
+        });
+        del(v.blobUrl).catch(() => {});
+        send({ type: "done" });
+        controller.close();
+        return;
+      }
+
+      const token = brand.accessToken;
+
       try {
         send({ type: "video", videoName, step: "Récupération de la vidéo…" });
         const blobRes = await fetch(v.blobUrl);
@@ -69,14 +83,15 @@ export async function POST(req: Request) {
         const fileBlob = await blobRes.blob();
 
         send({ type: "video", videoName, step: "Téléversement vers Meta…" });
-        const videoId = await uploadVideo(brand.adAccountId, fileBlob, v.filename);
+        const videoId = await uploadVideo(brand.adAccountId, fileBlob, v.filename, token);
 
         send({ type: "video", videoName, step: "Traitement par Meta…" });
-        await waitForVideoReady(videoId);
+        await waitForVideoReady(videoId, token);
 
         send({ type: "video", videoName, step: "Création de la campagne…" });
         const campaignId = await createCampaign({
           adAccountId: brand.adAccountId,
+          accessToken: token,
           name: `[REVIEW] ${videoName}`,
           dailyBudgetCents: params.dailyBudgetCents,
         });
@@ -84,6 +99,7 @@ export async function POST(req: Request) {
         send({ type: "video", videoName, step: "Création de l'ensemble de publicités…" });
         const adsetId = await createAdSet({
           adAccountId: brand.adAccountId,
+          accessToken: token,
           campaignId,
           pixelId: brand.pixelId,
           name: videoName,
@@ -95,12 +111,13 @@ export async function POST(req: Request) {
         });
 
         send({ type: "video", videoName, step: "Récupération de la miniature…" });
-        const thumbnailUrl = await getVideoThumbnailUrl(videoId);
+        const thumbnailUrl = await getVideoThumbnailUrl(videoId, token);
 
         send({ type: "video", videoName, step: "Création du visuel publicitaire…" });
         const perVideoUrl = params.urlMap?.[videoName] ?? params.landingUrl ?? "";
         const creativeId = await createVideoCreative({
           adAccountId: brand.adAccountId,
+          accessToken: token,
           pageId: brand.pageId,
           videoId,
           thumbnailUrl,
@@ -113,6 +130,7 @@ export async function POST(req: Request) {
         send({ type: "video", videoName, step: "Création de la publicité…" });
         await createAd({
           adAccountId: brand.adAccountId,
+          accessToken: token,
           adsetId,
           creativeId,
           name: videoName,

@@ -1,12 +1,6 @@
 export const GRAPH_VERSION = "v21.0";
 export const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
-function token(): string {
-  const t = process.env.META_ACCESS_TOKEN;
-  if (!t) throw new Error("META_ACCESS_TOKEN is not set");
-  return t;
-}
-
 export class MetaApiError extends Error {
   constructor(public status: number, public payload: unknown, message: string) {
     super(message);
@@ -48,9 +42,13 @@ function extractMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-export async function graphGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+export async function graphGet<T>(
+  path: string,
+  params: Record<string, string>,
+  token: string,
+): Promise<T> {
   const url = new URL(`${GRAPH_BASE}${path}`);
-  url.searchParams.set("access_token", token());
+  url.searchParams.set("access_token", token);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const res = await fetch(url, { method: "GET", cache: "no-store" });
   const payload = await parse(res);
@@ -58,9 +56,13 @@ export async function graphGet<T>(path: string, params: Record<string, string> =
   return payload as T;
 }
 
-export async function graphPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
+export async function graphPost<T>(
+  path: string,
+  body: Record<string, unknown>,
+  token: string,
+): Promise<T> {
   const form = new URLSearchParams();
-  form.set("access_token", token());
+  form.set("access_token", token);
   for (const [k, v] of Object.entries(body)) {
     if (v === undefined || v === null) continue;
     form.set(k, typeof v === "string" ? v : JSON.stringify(v));
@@ -81,9 +83,10 @@ export async function graphPost<T>(path: string, body: Record<string, unknown>):
 export async function graphPostMultipart<T>(
   path: string,
   fields: Record<string, string | Blob>,
+  token: string,
 ): Promise<T> {
   const form = new FormData();
-  form.set("access_token", token());
+  form.set("access_token", token);
   for (const [k, v] of Object.entries(fields)) form.set(k, v);
   const res = await fetch(`${GRAPH_BASE}${path}`, { method: "POST", body: form, cache: "no-store" });
   const payload = await parse(res);

@@ -6,18 +6,32 @@ For each video: one campaign (CBO, bid cap), one adset (DZ broad, optimized for 
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind v4
-- Upstash Redis (via Vercel Marketplace) for the brand registry
+- Upstash Redis for the brand registry
+- Vercel Blob for client-side video uploads (no 4.5MB function-body limit)
 - Direct calls to the Meta Marketing API (Graph v21.0)
 
 ## Setup
 
 1. Copy `.env.local.example` to `.env.local` and fill in:
-   - `META_ACCESS_TOKEN` — long-lived System User token from Meta Business Manager, with `ads_management`, `pages_read_engagement`, `business_management` scopes, and access to every ad account / page / pixel you plan to use.
    - `APP_PASSWORD` — shared password for the team.
    - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — populated automatically when you add Upstash Redis via Vercel Marketplace (Storage tab → Redis). Pull locally with `vercel env pull .env.local`.
+   - `BLOB_READ_WRITE_TOKEN` — auto-injected when a Vercel Blob store is connected to the project.
 2. `npm install`
 3. `npm run dev`
-4. Open <http://localhost:3000>, log in, go to `/brands` and add at least one brand.
+4. Open <http://localhost:3000>, log in, go to `/brands` and add at least one brand (with its Meta access token).
+
+## Meta access tokens — per brand
+
+Each brand record stores its own long-lived **System User access token** for that brand's Business Manager. The token is entered when the brand is added or edited at `/brands` and is never sent back to the browser.
+
+To generate a token for a brand:
+
+1. In that brand's Business Manager, add your central System User as a partner (or create a dedicated one).
+2. Assign the System User access to the **Ad Account**, **Page**, and **Pixel** you'll use (Business Settings → System Users → Assign Assets).
+3. Generate a token with scopes `ads_management`, `pages_read_engagement`, `business_management`.
+4. Paste it into the `/brands` form alongside the IDs.
+
+Tokens are stored encrypted at rest in Upstash and only loaded server-side by `/api/launch`.
 
 ## Defaults (overridable per run)
 
@@ -34,4 +48,4 @@ For each video: one campaign (CBO, bid cap), one adset (DZ broad, optimized for 
 
 ## Deploy
 
-Push to GitHub `main`; Vercel auto-deploys. Set `META_ACCESS_TOKEN` and `APP_PASSWORD` in the Vercel project's env vars, and provision Upstash Redis under Storage — the Upstash env vars are injected automatically.
+Push to GitHub `main`; Vercel auto-deploys. Set `APP_PASSWORD` in Vercel project env vars, provision Upstash Redis and Vercel Blob under Storage — their env vars are injected automatically.

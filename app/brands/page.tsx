@@ -3,25 +3,37 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-interface Brand {
+interface PublicBrand {
   id: string;
   name: string;
   adAccountId: string;
   pageId: string;
   pixelId: string;
+  hasToken: boolean;
 }
 
-const empty: Omit<Brand, "id"> & { id?: string } = {
+interface Draft {
+  id?: string;
+  name: string;
+  adAccountId: string;
+  pageId: string;
+  pixelId: string;
+  accessToken: string;
+}
+
+const empty: Draft = {
   name: "",
   adAccountId: "",
   pageId: "",
   pixelId: "",
+  accessToken: "",
 };
 
 export default function BrandsPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [draft, setDraft] = useState<typeof empty>(empty);
+  const [brands, setBrands] = useState<PublicBrand[]>([]);
+  const [draft, setDraft] = useState<Draft>(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingHasToken, setEditingHasToken] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -50,6 +62,7 @@ export default function BrandsPage() {
     } else {
       setDraft(empty);
       setEditingId(null);
+      setEditingHasToken(false);
       await load();
     }
     setSaving(false);
@@ -61,10 +74,29 @@ export default function BrandsPage() {
     await load();
   }
 
-  function edit(b: Brand) {
-    setDraft({ name: b.name, adAccountId: b.adAccountId, pageId: b.pageId, pixelId: b.pixelId });
+  function edit(b: PublicBrand) {
+    setDraft({
+      name: b.name,
+      adAccountId: b.adAccountId,
+      pageId: b.pageId,
+      pixelId: b.pixelId,
+      accessToken: "",
+    });
     setEditingId(b.id);
+    setEditingHasToken(b.hasToken);
   }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditingHasToken(false);
+    setDraft(empty);
+  }
+
+  const tokenPlaceholder = editingId
+    ? editingHasToken
+      ? "Laisser vide pour conserver le token actuel"
+      : "Token Meta requis"
+    : "Token d'accès Meta (System User long-lived)";
 
   return (
     <main className="min-h-screen max-w-4xl mx-auto p-6 space-y-8">
@@ -95,6 +127,18 @@ export default function BrandsPage() {
             value={draft.pixelId}
             onChange={(v) => setDraft({ ...draft, pixelId: v })}
           />
+          <div className="sm:col-span-2">
+            <label className="block">
+              <span className="block text-xs text-ink-500 mb-1">Token d&apos;accès Meta</span>
+              <input
+                type="password"
+                value={draft.accessToken}
+                onChange={(e) => setDraft({ ...draft, accessToken: e.target.value })}
+                placeholder={tokenPlaceholder}
+                className="w-full rounded-lg border border-ink-200 px-3 py-2 focus:outline-none focus:border-accent-500 font-mono text-xs"
+              />
+            </label>
+          </div>
           {error && <p className="text-sm text-err-500 sm:col-span-2">{error}</p>}
           <div className="sm:col-span-2 flex gap-2">
             <button
@@ -105,14 +149,7 @@ export default function BrandsPage() {
               {editingId ? "Enregistrer" : "Ajouter"}
             </button>
             {editingId && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingId(null);
-                  setDraft(empty);
-                }}
-                className="rounded-lg border border-ink-200 px-4 py-2"
-              >
+              <button type="button" onClick={cancelEdit} className="rounded-lg border border-ink-200 px-4 py-2">
                 Annuler
               </button>
             )}
@@ -128,13 +165,14 @@ export default function BrandsPage() {
               <th className="px-4 py-2">Compte pub.</th>
               <th className="px-4 py-2">Page</th>
               <th className="px-4 py-2">Pixel</th>
+              <th className="px-4 py-2">Token</th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {brands.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-ink-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-ink-500">
                   Aucune marque enregistrée
                 </td>
               </tr>
@@ -145,6 +183,13 @@ export default function BrandsPage() {
                 <td className="px-4 py-2 font-mono text-xs">{b.adAccountId}</td>
                 <td className="px-4 py-2 font-mono text-xs">{b.pageId}</td>
                 <td className="px-4 py-2 font-mono text-xs">{b.pixelId}</td>
+                <td className="px-4 py-2 text-xs">
+                  {b.hasToken ? (
+                    <span className="text-ok-500">✓ Configuré</span>
+                  ) : (
+                    <span className="text-warn-500">⚠ Manquant</span>
+                  )}
+                </td>
                 <td className="px-4 py-2 text-right space-x-3">
                   <button onClick={() => edit(b)} className="text-accent-500 hover:underline">
                     Modifier

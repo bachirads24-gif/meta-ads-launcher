@@ -6,7 +6,10 @@ export interface Brand {
   adAccountId: string;
   pageId: string;
   pixelId: string;
+  accessToken: string;
 }
+
+export type PublicBrand = Omit<Brand, "accessToken"> & { hasToken: boolean };
 
 const KEY = "brands";
 
@@ -14,25 +17,41 @@ function redis(): Redis {
   return Redis.fromEnv();
 }
 
-export async function listBrands(): Promise<Brand[]> {
+async function readAll(): Promise<Brand[]> {
   const brands = await redis().get<Brand[]>(KEY);
-  return brands ?? [];
+  return (brands ?? []).map((b) => ({ ...b, accessToken: b.accessToken ?? "" }));
 }
 
-export async function getBrand(id: string): Promise<Brand | null> {
-  const brands = await listBrands();
+function toPublic(b: Brand): PublicBrand {
+  return {
+    id: b.id,
+    name: b.name,
+    adAccountId: b.adAccountId,
+    pageId: b.pageId,
+    pixelId: b.pixelId,
+    hasToken: !!b.accessToken,
+  };
+}
+
+export async function listBrandsPublic(): Promise<PublicBrand[]> {
+  const brands = await readAll();
+  return brands.map(toPublic);
+}
+
+export async function getBrandWithToken(id: string): Promise<Brand | null> {
+  const brands = await readAll();
   return brands.find((b) => b.id === id) ?? null;
 }
 
 export async function saveBrand(brand: Brand): Promise<void> {
-  const brands = await listBrands();
+  const brands = await readAll();
   const next = brands.filter((b) => b.id !== brand.id);
   next.push(brand);
   await redis().set(KEY, next);
 }
 
 export async function deleteBrand(id: string): Promise<void> {
-  const brands = await listBrands();
+  const brands = await readAll();
   await redis().set(
     KEY,
     brands.filter((b) => b.id !== id),
