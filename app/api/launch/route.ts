@@ -1,3 +1,4 @@
+import { del } from "@vercel/blob";
 import { getBrand } from "@/lib/brands";
 import { uploadVideo, waitForVideoReady, getVideoThumbnailUrl } from "@/lib/meta/videos";
 import { createCampaign } from "@/lib/meta/campaigns";
@@ -15,6 +16,11 @@ type Event =
   | { type: "video-error"; videoName: string; error: string }
   | { type: "done" };
 
+interface VideoInput {
+  filename: string;
+  blobUrl: string;
+}
+
 interface RunParams {
   brandId: string;
   headline: string;
@@ -27,6 +33,7 @@ interface RunParams {
   ageMin: number;
   ageMax: number;
   genders: number[];
+  videos: VideoInput[];
 }
 
 function stripExt(filename: string): string {
@@ -41,16 +48,10 @@ function errMsg(e: unknown): string {
 }
 
 export async function POST(req: Request) {
-  const form = await req.formData();
-  const paramsRaw = form.get("params");
-  if (typeof paramsRaw !== "string") {
-    return new Response("Missing params", { status: 400 });
+  const params = (await req.json()) as RunParams;
+  if (!params.videos || params.videos.length === 0) {
+    return new Response("No videos provided", { status: 400 });
   }
-  const params = JSON.parse(paramsRaw) as RunParams;
-  const files = form.getAll("videos").filter((v): v is File => v instanceof File);
-
-  if (files.length === 0) return new Response("No videos uploaded", { status: 400 });
-
   const brand = await getBrand(params.brandId);
   if (!brand) return new Response("Marque introuvable", { status: 400 });
 
@@ -59,11 +60,16 @@ export async function POST(req: Request) {
     async start(controller) {
       const send = (e: Event) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
 
-      for (const file of files) {
-        const videoName = stripExt(file.name);
+      for (const v of params.videos) {
+        const videoName = stripExt(v.filename);
         try {
-          send({ type: "video", videoName, step: "Téléversement de la vidéo…" });
-          const videoId = await uploadVideo(brand.adAccountId, file, file.name);
+          send({ type: "video", videoName, step: "Récupération de la vidéo…" });
+          const blobRes = await fetch(v.blobUrl);
+          if (!blobRes.ok) throw new Error(`Blob fetch failed: ${blobRes.status}`);
+          const fileBlob = await blobRes.blob();
+
+          send({ type: "video", videoName, step: "Téléversement vers Meta…" });
+          const videoId = await uploadVideo(brand.adAccountId, fileBlob, v.filename);
 
           send({ type: "video", videoName, step: "Traitement par Meta…" });
           await waitForVideoReady(videoId);
@@ -115,6 +121,9 @@ export async function POST(req: Request) {
           send({ type: "video-done", videoName, campaignId, adAccountId: brand.adAccountId });
         } catch (e) {
           send({ type: "video-error", videoName, error: errMsg(e) });
+        } finally {
+          // Clean up the blob whether the campaign creation succeeded or failed.
+          del(v.blobUrl).catch(() => {});
         }
       }
 

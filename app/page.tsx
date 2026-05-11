@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { upload } from "@vercel/blob/client";
 
 interface Brand {
   id: string;
@@ -13,8 +14,9 @@ interface Brand {
 
 interface VideoState {
   name: string;
-  status: "pending" | "running" | "done" | "error";
+  status: "pending" | "uploading" | "running" | "done" | "error";
   step?: string;
+  uploadProgress?: number;
   campaignId?: string;
   adAccountId?: string;
   error?: string;
@@ -131,6 +133,42 @@ export default function Home() {
     setRunning(true);
     setVideos(files.map((f) => ({ name: stripExt(f.name), status: "pending" })));
 
+    const uploaded: { filename: string; blobUrl: string }[] = [];
+    for (const f of files) {
+      const name = stripExt(f.name);
+      try {
+        setVideos((prev) =>
+          prev.map((v) => (v.name === name ? { ...v, status: "uploading", uploadProgress: 0 } : v)),
+        );
+        const blob = await upload(f.name, f, {
+          access: "public",
+          handleUploadUrl: "/api/blob/upload",
+          onUploadProgress: (p) => {
+            setVideos((prev) =>
+              prev.map((v) => (v.name === name ? { ...v, uploadProgress: p.percentage } : v)),
+            );
+          },
+        });
+        uploaded.push({ filename: f.name, blobUrl: blob.url });
+        setVideos((prev) =>
+          prev.map((v) => (v.name === name ? { ...v, status: "pending", uploadProgress: undefined } : v)),
+        );
+      } catch (e) {
+        setVideos((prev) =>
+          prev.map((v) =>
+            v.name === name
+              ? { ...v, status: "error", error: e instanceof Error ? e.message : "Upload échoué" }
+              : v,
+          ),
+        );
+      }
+    }
+
+    if (uploaded.length === 0) {
+      setRunning(false);
+      return;
+    }
+
     const genders = gender === "all" ? [] : gender === "male" ? [1] : [2];
     const params = {
       brandId,
@@ -144,13 +182,14 @@ export default function Home() {
       ageMin,
       ageMax,
       genders,
+      videos: uploaded,
     };
 
-    const fd = new FormData();
-    fd.set("params", JSON.stringify(params));
-    for (const f of files) fd.append("videos", f);
-
-    const res = await fetch("/api/launch", { method: "POST", body: fd });
+    const res = await fetch("/api/launch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
     if (!res.ok || !res.body) {
       alert("Échec du lancement : " + (await res.text()));
       setRunning(false);
@@ -387,6 +426,11 @@ export default function Home() {
                   <td className="px-4 py-2 font-mono text-xs">{v.name}</td>
                   <td className="px-4 py-2">
                     {v.status === "pending" && <span className="text-ink-500">En attente</span>}
+                    {v.status === "uploading" && (
+                      <span className="text-accent-500">
+                        Téléversement… {v.uploadProgress != null ? `${Math.round(v.uploadProgress)}%` : ""}
+                      </span>
+                    )}
                     {v.status === "running" && <span className="text-accent-500">{v.step || "…"}</span>}
                     {v.status === "done" && <span className="text-ok-500">✓ Créée</span>}
                     {v.status === "error" && <span className="text-err-500">✗ {v.error}</span>}
