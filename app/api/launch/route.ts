@@ -33,7 +33,7 @@ interface RunParams {
   ageMin: number;
   ageMax: number;
   genders: number[];
-  videos: VideoInput[];
+  video: VideoInput;
 }
 
 function stripExt(filename: string): string {
@@ -49,82 +49,80 @@ function errMsg(e: unknown): string {
 
 export async function POST(req: Request) {
   const params = (await req.json()) as RunParams;
-  if (!params.videos || params.videos.length === 0) {
-    return new Response("No videos provided", { status: 400 });
-  }
+  if (!params.video) return new Response("No video provided", { status: 400 });
+
   const brand = await getBrand(params.brandId);
   if (!brand) return new Response("Marque introuvable", { status: 400 });
+
+  const v = params.video;
+  const videoName = stripExt(v.filename);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       const send = (e: Event) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
 
-      for (const v of params.videos) {
-        const videoName = stripExt(v.filename);
-        try {
-          send({ type: "video", videoName, step: "Récupération de la vidéo…" });
-          const blobRes = await fetch(v.blobUrl);
-          if (!blobRes.ok) throw new Error(`Blob fetch failed: ${blobRes.status}`);
-          const fileBlob = await blobRes.blob();
+      try {
+        send({ type: "video", videoName, step: "Récupération de la vidéo…" });
+        const blobRes = await fetch(v.blobUrl);
+        if (!blobRes.ok) throw new Error(`Blob fetch failed: ${blobRes.status}`);
+        const fileBlob = await blobRes.blob();
 
-          send({ type: "video", videoName, step: "Téléversement vers Meta…" });
-          const videoId = await uploadVideo(brand.adAccountId, fileBlob, v.filename);
+        send({ type: "video", videoName, step: "Téléversement vers Meta…" });
+        const videoId = await uploadVideo(brand.adAccountId, fileBlob, v.filename);
 
-          send({ type: "video", videoName, step: "Traitement par Meta…" });
-          await waitForVideoReady(videoId);
+        send({ type: "video", videoName, step: "Traitement par Meta…" });
+        await waitForVideoReady(videoId);
 
-          send({ type: "video", videoName, step: "Création de la campagne…" });
-          const campaignId = await createCampaign({
-            adAccountId: brand.adAccountId,
-            name: `[REVIEW] ${videoName}`,
-            dailyBudgetCents: params.dailyBudgetCents,
-          });
+        send({ type: "video", videoName, step: "Création de la campagne…" });
+        const campaignId = await createCampaign({
+          adAccountId: brand.adAccountId,
+          name: `[REVIEW] ${videoName}`,
+          dailyBudgetCents: params.dailyBudgetCents,
+        });
 
-          send({ type: "video", videoName, step: "Création de l'ensemble de publicités…" });
-          const adsetId = await createAdSet({
-            adAccountId: brand.adAccountId,
-            campaignId,
-            pixelId: brand.pixelId,
-            name: videoName,
-            countries: params.countries,
-            ageMin: params.ageMin,
-            ageMax: params.ageMax,
-            genders: params.genders,
-            bidAmountCents: params.bidCapCents,
-          });
+        send({ type: "video", videoName, step: "Création de l'ensemble de publicités…" });
+        const adsetId = await createAdSet({
+          adAccountId: brand.adAccountId,
+          campaignId,
+          pixelId: brand.pixelId,
+          name: videoName,
+          countries: params.countries,
+          ageMin: params.ageMin,
+          ageMax: params.ageMax,
+          genders: params.genders,
+          bidAmountCents: params.bidCapCents,
+        });
 
-          send({ type: "video", videoName, step: "Récupération de la miniature…" });
-          const thumbnailUrl = await getVideoThumbnailUrl(videoId);
+        send({ type: "video", videoName, step: "Récupération de la miniature…" });
+        const thumbnailUrl = await getVideoThumbnailUrl(videoId);
 
-          send({ type: "video", videoName, step: "Création du visuel publicitaire…" });
-          const perVideoUrl = params.urlMap?.[videoName] ?? params.landingUrl ?? "";
-          const creativeId = await createVideoCreative({
-            adAccountId: brand.adAccountId,
-            pageId: brand.pageId,
-            videoId,
-            thumbnailUrl,
-            headline: params.headline,
-            primaryText: params.primaryText,
-            landingUrl: perVideoUrl,
-            name: videoName,
-          });
+        send({ type: "video", videoName, step: "Création du visuel publicitaire…" });
+        const perVideoUrl = params.urlMap?.[videoName] ?? params.landingUrl ?? "";
+        const creativeId = await createVideoCreative({
+          adAccountId: brand.adAccountId,
+          pageId: brand.pageId,
+          videoId,
+          thumbnailUrl,
+          headline: params.headline,
+          primaryText: params.primaryText,
+          landingUrl: perVideoUrl,
+          name: videoName,
+        });
 
-          send({ type: "video", videoName, step: "Création de la publicité…" });
-          await createAd({
-            adAccountId: brand.adAccountId,
-            adsetId,
-            creativeId,
-            name: videoName,
-          });
+        send({ type: "video", videoName, step: "Création de la publicité…" });
+        await createAd({
+          adAccountId: brand.adAccountId,
+          adsetId,
+          creativeId,
+          name: videoName,
+        });
 
-          send({ type: "video-done", videoName, campaignId, adAccountId: brand.adAccountId });
-        } catch (e) {
-          send({ type: "video-error", videoName, error: errMsg(e) });
-        } finally {
-          // Clean up the blob whether the campaign creation succeeded or failed.
-          del(v.blobUrl).catch(() => {});
-        }
+        send({ type: "video-done", videoName, campaignId, adAccountId: brand.adAccountId });
+      } catch (e) {
+        send({ type: "video-error", videoName, error: errMsg(e) });
+      } finally {
+        del(v.blobUrl).catch(() => {});
       }
 
       send({ type: "done" });

@@ -170,7 +170,7 @@ export default function Home() {
     }
 
     const genders = gender === "all" ? [] : gender === "male" ? [1] : [2];
-    const params = {
+    const basePayload = {
       brandId,
       headline,
       primaryText,
@@ -182,37 +182,53 @@ export default function Home() {
       ageMin,
       ageMax,
       genders,
-      videos: uploaded,
     };
 
-    const res = await fetch("/api/launch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
-    });
-    if (!res.ok || !res.body) {
-      alert("Échec du lancement : " + (await res.text()));
-      setRunning(false);
-      return;
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split("\n\n");
-      buf = lines.pop() || "";
-      for (const block of lines) {
-        const line = block.split("\n").find((l) => l.startsWith("data: "));
-        if (!line) continue;
-        const evt = JSON.parse(line.slice(6));
-        applyEvent(evt);
+    await runWithConcurrency(uploaded, 5, async (video) => {
+      const res = await fetch("/api/launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...basePayload, video }),
+      });
+      if (!res.ok || !res.body) {
+        const name = stripExt(video.filename);
+        const error = await res.text().catch(() => "Erreur réseau");
+        setVideos((prev) =>
+          prev.map((v) => (v.name === name ? { ...v, status: "error", error } : v)),
+        );
+        return;
       }
-    }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n\n");
+        buf = lines.pop() || "";
+        for (const block of lines) {
+          const line = block.split("\n").find((l) => l.startsWith("data: "));
+          if (!line) continue;
+          const evt = JSON.parse(line.slice(6));
+          applyEvent(evt);
+        }
+      }
+    });
+
     setRunning(false);
+  }
+
+  async function runWithConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (true) {
+        const i = cursor++;
+        if (i >= items.length) return;
+        await fn(items[i]);
+      }
+    });
+    await Promise.all(workers);
   }
 
   function applyEvent(evt: { type: string; videoName?: string; step?: string; campaignId?: string; adAccountId?: string; error?: string }) {
