@@ -10,7 +10,7 @@ export interface CreateAdSetInput {
   ageMin: number;
   ageMax: number;
   genders: number[];
-  bidAmountCents: number;
+  bidAmountCents?: number; // only when campaign uses LOWEST_COST_WITH_BID_CAP
   startTime?: string; // ISO 8601 with timezone; if omitted, Meta uses "now"
 }
 
@@ -29,10 +29,10 @@ export async function createAdSet(input: CreateAdSetInput): Promise<string> {
     status: "PAUSED",
     optimization_goal: "OFFSITE_CONVERSIONS",
     billing_event: "IMPRESSIONS",
-    bid_amount: input.bidAmountCents,
     promoted_object: { pixel_id: input.pixelId, custom_event_type: "LEAD" },
     targeting,
   };
+  if (typeof input.bidAmountCents === "number") body.bid_amount = input.bidAmountCents;
   if (input.startTime) body.start_time = input.startTime;
 
   const res = await graphPost<{ id: string }>(`/act_${input.adAccountId}/adsets`, body, input.accessToken);

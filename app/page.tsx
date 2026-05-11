@@ -66,6 +66,9 @@ export default function Home() {
   const [primaryText, setPrimaryText] = useState("");
   const [landingUrl, setLandingUrl] = useState("");
   const [dailyBudget, setDailyBudget] = useState(DEFAULTS.dailyBudgetUsd);
+  const [bidStrategy, setBidStrategy] = useState<"LOWEST_COST_WITH_BID_CAP" | "LOWEST_COST_WITHOUT_CAP">(
+    "LOWEST_COST_WITH_BID_CAP",
+  );
   const [bidCap, setBidCap] = useState(DEFAULTS.bidCapUsd);
   const [ageMin, setAgeMin] = useState(DEFAULTS.ageMin);
   const [ageMax, setAgeMax] = useState(DEFAULTS.ageMax);
@@ -189,7 +192,9 @@ export default function Home() {
       landingUrl: hasCsv ? "" : landingUrl,
       urlMap: hasCsv ? urlMap : {},
       dailyBudgetCents: Math.round(dailyBudget * 100),
-      bidCapCents: Math.round(bidCap * 100),
+      bidStrategy,
+      bidCapCents:
+        bidStrategy === "LOWEST_COST_WITH_BID_CAP" ? Math.round(bidCap * 100) : undefined,
       ageMin,
       ageMax,
       genders,
@@ -399,7 +404,19 @@ export default function Home() {
         {showAdvanced && (
           <div className="grid grid-cols-2 gap-3 pt-2 border-t border-ink-100">
             <NumField label="Budget quotidien (USD)" value={dailyBudget} onChange={setDailyBudget} step={1} />
-            <NumField label="Plafond d'enchère (USD)" value={bidCap} onChange={setBidCap} step={0.1} />
+            <Row label="Stratégie d'enchère">
+              <select
+                value={bidStrategy}
+                onChange={(e) => setBidStrategy(e.target.value as typeof bidStrategy)}
+                className="w-full rounded-lg border border-ink-200 px-3 py-2"
+              >
+                <option value="LOWEST_COST_WITH_BID_CAP">Plafond d&apos;enchère</option>
+                <option value="LOWEST_COST_WITHOUT_CAP">Volume le plus élevé</option>
+              </select>
+            </Row>
+            {bidStrategy === "LOWEST_COST_WITH_BID_CAP" && (
+              <NumField label="Plafond d'enchère (USD)" value={bidCap} onChange={setBidCap} step={0.1} />
+            )}
             <NumField label="Âge min" value={ageMin} onChange={setAgeMin} step={1} />
             <NumField label="Âge max" value={ageMax} onChange={setAgeMax} step={1} />
             <Row label="Genre">

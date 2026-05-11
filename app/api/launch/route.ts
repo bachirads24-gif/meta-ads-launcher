@@ -29,7 +29,8 @@ interface RunParams {
   landingUrl: string;
   urlMap?: Record<string, string>;
   dailyBudgetCents: number;
-  bidCapCents: number;
+  bidStrategy: "LOWEST_COST_WITH_BID_CAP" | "LOWEST_COST_WITHOUT_CAP";
+  bidCapCents?: number;
   ageMin: number;
   ageMax: number;
   genders: number[];
@@ -102,6 +103,7 @@ export async function POST(req: Request) {
           accessToken: token,
           name: `[REVIEW] ${videoName}`,
           dailyBudgetCents: params.dailyBudgetCents,
+          bidStrategy: params.bidStrategy,
         });
 
         send({ type: "video", videoName, step: "Création de l'ensemble de publicités…" });
@@ -115,7 +117,8 @@ export async function POST(req: Request) {
           ageMin: params.ageMin,
           ageMax: params.ageMax,
           genders: params.genders,
-          bidAmountCents: params.bidCapCents,
+          bidAmountCents:
+            params.bidStrategy === "LOWEST_COST_WITH_BID_CAP" ? params.bidCapCents : undefined,
           startTime: params.startTime,
         });
 
