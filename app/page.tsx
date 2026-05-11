@@ -26,7 +26,6 @@ interface VideoState {
 const DEFAULTS = {
   dailyBudgetUsd: 350,
   bidCapUsd: 3.5,
-  countries: ["DZ"],
   ageMin: 18,
   ageMax: 65,
   genders: [] as number[], // empty = all
@@ -71,7 +70,7 @@ export default function Home() {
   const [ageMin, setAgeMin] = useState(DEFAULTS.ageMin);
   const [ageMax, setAgeMax] = useState(DEFAULTS.ageMax);
   const [gender, setGender] = useState<"all" | "male" | "female">("all");
-  const [country, setCountry] = useState("DZ");
+  const [startDate, setStartDate] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [urlMap, setUrlMap] = useState<Record<string, string>>({});
@@ -182,6 +181,7 @@ export default function Home() {
     }
 
     const genders = gender === "all" ? [] : gender === "male" ? [1] : [2];
+    const startTime = startDate ? new Date(startDate).toISOString() : undefined;
     const basePayload = {
       brandId,
       headline,
@@ -190,10 +190,10 @@ export default function Home() {
       urlMap: hasCsv ? urlMap : {},
       dailyBudgetCents: Math.round(dailyBudget * 100),
       bidCapCents: Math.round(bidCap * 100),
-      countries: [country],
       ageMin,
       ageMax,
       genders,
+      startTime,
     };
 
     await runWithConcurrency(uploaded, 5, async (video) => {
@@ -376,6 +376,18 @@ export default function Home() {
           />
         </Row>
 
+        <Row label="Date de début (optionnel)">
+          <input
+            type="datetime-local"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-full rounded-lg border border-ink-200 px-3 py-2"
+          />
+          <span className="text-xs text-ink-500 mt-1 block">
+            Laisser vide pour démarrer dès l&apos;activation. S&apos;applique à toutes les vidéos du lot.
+          </span>
+        </Row>
+
         <button
           type="button"
           onClick={() => setShowAdvanced((s) => !s)}
@@ -400,14 +412,6 @@ export default function Home() {
                 <option value="male">Hommes</option>
                 <option value="female">Femmes</option>
               </select>
-            </Row>
-            <Row label="Pays (code ISO)">
-              <input
-                value={country}
-                onChange={(e) => setCountry(e.target.value.toUpperCase())}
-                maxLength={2}
-                className="w-full rounded-lg border border-ink-200 px-3 py-2"
-              />
             </Row>
           </div>
         )}

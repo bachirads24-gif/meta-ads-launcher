@@ -11,6 +11,7 @@ export interface CreateAdSetInput {
   ageMax: number;
   genders: number[];
   bidAmountCents: number;
+  startTime?: string; // ISO 8601 with timezone; if omitted, Meta uses "now"
 }
 
 export async function createAdSet(input: CreateAdSetInput): Promise<string> {
@@ -22,19 +23,18 @@ export async function createAdSet(input: CreateAdSetInput): Promise<string> {
   };
   if (input.genders.length > 0) targeting.genders = input.genders;
 
-  const res = await graphPost<{ id: string }>(
-    `/act_${input.adAccountId}/adsets`,
-    {
-      name: input.name,
-      campaign_id: input.campaignId,
-      status: "PAUSED",
-      optimization_goal: "OFFSITE_CONVERSIONS",
-      billing_event: "IMPRESSIONS",
-      bid_amount: input.bidAmountCents,
-      promoted_object: { pixel_id: input.pixelId, custom_event_type: "LEAD" },
-      targeting,
-    },
-    input.accessToken,
-  );
+  const body: Record<string, unknown> = {
+    name: input.name,
+    campaign_id: input.campaignId,
+    status: "PAUSED",
+    optimization_goal: "OFFSITE_CONVERSIONS",
+    billing_event: "IMPRESSIONS",
+    bid_amount: input.bidAmountCents,
+    promoted_object: { pixel_id: input.pixelId, custom_event_type: "LEAD" },
+    targeting,
+  };
+  if (input.startTime) body.start_time = input.startTime;
+
+  const res = await graphPost<{ id: string }>(`/act_${input.adAccountId}/adsets`, body, input.accessToken);
   return res.id;
 }

@@ -30,10 +30,10 @@ interface RunParams {
   urlMap?: Record<string, string>;
   dailyBudgetCents: number;
   bidCapCents: number;
-  countries: string[];
   ageMin: number;
   ageMax: number;
   genders: number[];
+  startTime?: string; // ISO 8601
   video: VideoInput;
 }
 
@@ -111,11 +111,12 @@ export async function POST(req: Request) {
           campaignId,
           pixelId: brand.pixelId,
           name: videoName,
-          countries: params.countries,
+          countries: ["DZ"],
           ageMin: params.ageMin,
           ageMax: params.ageMax,
           genders: params.genders,
           bidAmountCents: params.bidCapCents,
+          startTime: params.startTime,
         });
 
         send({ type: "video", videoName, step: "Récupération de la miniature…" });
