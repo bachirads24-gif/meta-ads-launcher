@@ -13,12 +13,18 @@ For each video: one campaign (CBO, bid cap), one adset (DZ broad, optimized for 
 ## Setup
 
 1. Copy `.env.local.example` to `.env.local` and fill in:
-   - `APP_PASSWORD` — shared password for the team.
+   - `SESSION_SECRET` — random 32-byte hex string for signing session cookies. Generate with `openssl rand -hex 32` or any random source. Pick once and keep stable.
+   - `ADMIN_USERNAME` / `ADMIN_PASSWORD` — bootstrap admin credentials. Only used the first time the admin logs in; after that the admin record is persisted in Upstash and these env vars can be removed.
    - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — populated automatically when you add Upstash Redis via Vercel Marketplace (Storage tab → Redis). Pull locally with `vercel env pull .env.local`.
    - `BLOB_READ_WRITE_TOKEN` — auto-injected when a Vercel Blob store is connected to the project.
 2. `npm install`
 3. `npm run dev`
-4. Open <http://localhost:3000>, log in, go to `/brands` and add at least one brand (with its Meta access token).
+4. Open <http://localhost:3000>, log in with the bootstrap admin credentials, then go to `/brands` to add brands and `/users` to add teammates with assigned brands.
+
+## User roles
+
+- **Admin** — can manage brands and users; sees all brands in the launcher.
+- **User** — can only see and launch campaigns for the brands the admin assigned to them. `/brands` and `/users` redirect them to the launcher.
 
 ## Meta access tokens — per brand
 

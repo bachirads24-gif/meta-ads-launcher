@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { upload } from "@vercel/blob/client";
 
@@ -58,6 +59,8 @@ function parseCsvMapping(text: string): Record<string, string> {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const [me, setMe] = useState<{ username: string; isAdmin: boolean } | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brandId, setBrandId] = useState<string>("");
   const [headline, setHeadline] = useState("");
@@ -82,6 +85,10 @@ export default function Home() {
   const unmatchedCount = files.length - matchedCount;
 
   useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => setMe({ username: d.username, isAdmin: !!d.isAdmin }))
+      .catch(() => {});
     fetch("/api/brands")
       .then((r) => r.json())
       .then((d) => {
@@ -89,6 +96,11 @@ export default function Home() {
         if (d.brands?.[0]) setBrandId(d.brands[0].id);
       });
   }, []);
+
+  async function logout() {
+    await fetch("/api/auth", { method: "DELETE" });
+    router.replace("/login");
+  }
 
   function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const list = Array.from(e.target.files ?? []);
@@ -254,16 +266,39 @@ export default function Home() {
 
   return (
     <main className="min-h-screen max-w-3xl mx-auto p-6 space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-semibold">Lanceur de campagnes Meta</h1>
-        <Link href="/brands" className="text-accent-500 hover:underline text-sm">
-          Gérer les marques →
-        </Link>
+        <nav className="flex items-center gap-4 text-sm">
+          {me?.isAdmin && (
+            <>
+              <Link href="/brands" className="text-accent-500 hover:underline">
+                Marques
+              </Link>
+              <Link href="/users" className="text-accent-500 hover:underline">
+                Utilisateurs
+              </Link>
+            </>
+          )}
+          {me && <span className="text-ink-500">{me.username}</span>}
+          <button onClick={logout} className="text-ink-500 hover:text-err-500">
+            Déconnexion
+          </button>
+        </nav>
       </header>
 
       {brands.length === 0 && (
         <div className="rounded-xl border border-warn-500/30 bg-warn-500/10 p-4 text-sm">
-          Aucune marque enregistrée. <Link href="/brands" className="underline text-accent-500">Ajoutez-en une</Link> pour commencer.
+          {me?.isAdmin ? (
+            <>
+              Aucune marque enregistrée.{" "}
+              <Link href="/brands" className="underline text-accent-500">
+                Ajoutez-en une
+              </Link>{" "}
+              pour commencer.
+            </>
+          ) : (
+            "Aucune marque ne vous est assignée. Contactez votre administrateur."
+          )}
         </div>
       )}
 

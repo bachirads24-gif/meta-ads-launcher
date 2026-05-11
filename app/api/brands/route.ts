@@ -7,13 +7,21 @@ import {
   newBrandId,
   type Brand,
 } from "@/lib/brands";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
-  const brands = await listBrandsPublic();
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const all = await listBrandsPublic();
+  const brands = user.isAdmin ? all : all.filter((b) => user.brandIds.includes(b.id));
   return NextResponse.json({ brands });
 }
 
 export async function POST(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  if (!user.isAdmin) return NextResponse.json({ error: "Admin requis" }, { status: 403 });
+
   const body = (await req.json()) as Partial<Brand>;
   const id = body.id || newBrandId();
   const existing = body.id ? await getBrandWithToken(body.id) : null;
@@ -37,12 +45,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Token d'accès Meta requis" }, { status: 400 });
   }
   await saveBrand(brand);
-  // Don't echo the token back to the browser.
   const { accessToken: _t, ...safe } = brand;
   return NextResponse.json({ brand: { ...safe, hasToken: true } });
 }
 
 export async function DELETE(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  if (!user.isAdmin) return NextResponse.json({ error: "Admin requis" }, { status: 403 });
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id manquant" }, { status: 400 });

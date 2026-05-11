@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface PublicBrand {
@@ -30,12 +31,21 @@ const empty: Draft = {
 };
 
 export default function BrandsPage() {
+  const router = useRouter();
   const [brands, setBrands] = useState<PublicBrand[]>([]);
   const [draft, setDraft] = useState<Draft>(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingHasToken, setEditingHasToken] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.isAdmin) router.replace("/");
+      });
+  }, [router]);
 
   async function load() {
     const res = await fetch("/api/brands");

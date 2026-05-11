@@ -1,5 +1,6 @@
 import { del } from "@vercel/blob";
 import { getBrandWithToken } from "@/lib/brands";
+import { getCurrentUser } from "@/lib/auth";
 import { uploadVideo, waitForVideoReady, getVideoThumbnailUrl } from "@/lib/meta/videos";
 import { createCampaign } from "@/lib/meta/campaigns";
 import { createAdSet } from "@/lib/meta/adsets";
@@ -48,8 +49,15 @@ function errMsg(e: unknown): string {
 }
 
 export async function POST(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) return new Response("Non authentifié", { status: 401 });
+
   const params = (await req.json()) as RunParams;
   if (!params.video) return new Response("No video provided", { status: 400 });
+
+  if (!user.isAdmin && !user.brandIds.includes(params.brandId)) {
+    return new Response("Marque non autorisée", { status: 403 });
+  }
 
   const brand = await getBrandWithToken(params.brandId);
   if (!brand) return new Response("Marque introuvable", { status: 400 });
