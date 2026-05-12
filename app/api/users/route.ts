@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   }>;
 
   const username = (body.username ?? "").trim();
-  const password = (body.password ?? "").trim();
+  const password = body.password ?? "";
   const brandIds = Array.isArray(body.brandIds) ? body.brandIds : [];
   const isAdmin = !!body.isAdmin;
 
