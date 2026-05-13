@@ -1,0 +1,19 @@
+name: CPA alerts cron
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/alerts/cron
+        env:
+          CRON_URL: ${{ secrets.CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -X GET "$CRON_URL" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Accept: application/json"
