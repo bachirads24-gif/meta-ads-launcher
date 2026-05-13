@@ -8,6 +8,7 @@ export interface User {
   passwordSalt: string;
   brandIds: string[];
   isAdmin: boolean;
+  telegramChatId?: string;
   createdAt: number;
 }
 

@@ -9,6 +9,7 @@ interface PublicUser {
   username: string;
   brandIds: string[];
   isAdmin: boolean;
+  telegramChatId?: string;
   createdAt: number;
 }
 
@@ -23,9 +24,10 @@ interface Draft {
   password: string;
   brandIds: string[];
   isAdmin: boolean;
+  telegramChatId: string;
 }
 
-const empty: Draft = { username: "", password: "", brandIds: [], isAdmin: false };
+const empty: Draft = { username: "", password: "", brandIds: [], isAdmin: false, telegramChatId: "" };
 
 export default function UsersPage() {
   const router = useRouter();
@@ -88,7 +90,13 @@ export default function UsersPage() {
   }
 
   function edit(u: PublicUser) {
-    setDraft({ username: u.username, password: "", brandIds: u.brandIds, isAdmin: u.isAdmin });
+    setDraft({
+      username: u.username,
+      password: "",
+      brandIds: u.brandIds,
+      isAdmin: u.isAdmin,
+      telegramChatId: u.telegramChatId ?? "",
+    });
     setEditingId(u.id);
   }
 
@@ -140,6 +148,18 @@ export default function UsersPage() {
               />
             </label>
           </div>
+
+          <label className="block">
+            <span className="block text-xs text-ink-500 mb-1">
+              Telegram Chat ID (optionnel — pour les alertes CPA)
+            </span>
+            <input
+              value={draft.telegramChatId}
+              onChange={(e) => setDraft({ ...draft, telegramChatId: e.target.value })}
+              placeholder="ex: 123456789"
+              className="w-full rounded-lg border border-ink-200 px-3 py-2"
+            />
+          </label>
 
           <label className="inline-flex items-center gap-2 text-sm">
             <input

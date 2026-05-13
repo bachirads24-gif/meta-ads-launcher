@@ -37,12 +37,14 @@ export async function POST(req: Request) {
     password: string;
     brandIds: string[];
     isAdmin: boolean;
+    telegramChatId: string;
   }>;
 
   const username = (body.username ?? "").trim();
   const password = body.password ?? "";
   const brandIds = Array.isArray(body.brandIds) ? body.brandIds : [];
   const isAdmin = !!body.isAdmin;
+  const telegramChatId = (body.telegramChatId ?? "").trim();
 
   if (!username) return NextResponse.json({ error: "Nom d'utilisateur requis" }, { status: 400 });
 
@@ -83,6 +85,7 @@ export async function POST(req: Request) {
     passwordSalt,
     brandIds: isAdmin ? [] : brandIds,
     isAdmin,
+    telegramChatId: telegramChatId || undefined,
     createdAt: existing?.createdAt ?? Date.now(),
   };
   await saveUser(user);
