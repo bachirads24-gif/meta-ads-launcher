@@ -4,6 +4,11 @@ export interface Brand {
   id: string;
   name: string;
   accessToken: string;
+  industry?: string;
+  audience?: string;
+  offers?: string;
+  voice?: string;
+  keywords?: string;
 }
 
 export type PublicBrand = Omit<Brand, "accessToken"> & { hasToken: boolean };
@@ -24,6 +29,11 @@ function toPublic(b: Brand): PublicBrand {
     id: b.id,
     name: b.name,
     hasToken: !!b.accessToken,
+    industry: b.industry,
+    audience: b.audience,
+    offers: b.offers,
+    voice: b.voice,
+    keywords: b.keywords,
   };
 }
 

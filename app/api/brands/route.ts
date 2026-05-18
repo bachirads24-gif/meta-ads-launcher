@@ -33,6 +33,11 @@ export async function POST(req: Request) {
     id,
     name: (body.name ?? "").trim(),
     accessToken,
+    industry: (body.industry ?? "").trim() || undefined,
+    audience: (body.audience ?? "").trim() || undefined,
+    offers: (body.offers ?? "").trim() || undefined,
+    voice: (body.voice ?? "").trim() || undefined,
+    keywords: (body.keywords ?? "").trim() || undefined,
   };
 
   if (!brand.name) {

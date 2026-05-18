@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getConversation, saveHistory, updateMeta } from "@/lib/assistant/store";
 import { streamAssistant, generateTitle } from "@/lib/ai/gemini";
 import { executeTool, type ToolContext } from "@/lib/ai/tools";
+import { getBrandWithToken } from "@/lib/brands";
 import type { Content, Part } from "@google/genai";
 
 export const runtime = "nodejs";
@@ -36,6 +37,9 @@ export async function POST(req: Request) {
     return new Response("Brand non autorisé", { status: 403 });
   }
 
+  const brand = await getBrandWithToken(conv.meta.brandId);
+  if (!brand) return new Response("Marque introuvable", { status: 404 });
+
   const ctx: ToolContext = { user, brandId: conv.meta.brandId };
   const isFirstMessage = conv.history.length === 0;
 
@@ -59,7 +63,7 @@ export async function POST(req: Request) {
 
         let safetyHops = 0;
         while (safetyHops++ < 8) {
-          const iter = await streamAssistant(history);
+          const iter = await streamAssistant(history, brand);
           const assistantParts: Part[] = [];
           const pendingFnCalls: { name: string; args: Record<string, unknown>; id?: string }[] = [];
           let groundingSent = false;

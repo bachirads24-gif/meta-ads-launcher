@@ -1,6 +1,7 @@
 import { GoogleGenAI, type Content } from "@google/genai";
 import { ASSISTANT_TOOL_DECLARATIONS } from "./tools";
-import { SYSTEM_INSTRUCTION } from "./system-prompt";
+import { buildSystemInstruction } from "./system-prompt";
+import type { Brand } from "@/lib/brands";
 
 export const ASSISTANT_MODEL = "gemini-2.5-pro";
 
@@ -10,13 +11,13 @@ function client(): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
-export async function streamAssistant(contents: Content[]) {
+export async function streamAssistant(contents: Content[], brand: Brand) {
   const ai = client();
   return ai.models.generateContentStream({
     model: ASSISTANT_MODEL,
     contents,
     config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
+      systemInstruction: buildSystemInstruction(brand),
       tools: [
         { functionDeclarations: ASSISTANT_TOOL_DECLARATIONS },
         { googleSearch: {} },

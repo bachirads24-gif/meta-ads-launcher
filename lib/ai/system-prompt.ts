@@ -1,3 +1,5 @@
+import type { Brand } from "@/lib/brands";
+
 export const SYSTEM_INSTRUCTION = `Tu es un stratège expert en publicité Meta (Facebook & Instagram) spécialisé dans le marché algérien.
 
 ## Rôle
@@ -36,3 +38,17 @@ Tu as accès en lecture seule aux données Meta de l'utilisateur via des functio
 - Pour les stratégies vidéo : structure hook (0-3s) / proof (3-15s) / CTA (15s+), avec exemples concrets adaptés à l'offre.
 - Si une donnée manque, demande la précision avant de t'engager.
 `;
+
+export function buildSystemInstruction(brand: Brand): string {
+  const fields: [string, string | undefined][] = [
+    ["Industrie", brand.industry],
+    ["Public cible", brand.audience],
+    ["Offres / produits", brand.offers],
+    ["Voix de marque", brand.voice],
+    ["Mots-clés", brand.keywords],
+  ];
+  const active = fields.filter(([, v]) => v && v.trim().length > 0);
+  if (active.length === 0) return SYSTEM_INSTRUCTION;
+  const block = active.map(([k, v]) => `- ${k} : ${v!.trim()}`).join("\n");
+  return `${SYSTEM_INSTRUCTION}\n\n## Marque active : ${brand.name}\n${block}\n\nOriente systématiquement tes recherches Google et tes suggestions selon ce profil. Cite des références, benchmarks et tendances spécifiques à cette industrie quand pertinent — n'utilise pas de conseils génériques quand tu peux être spécifique.`;
+}

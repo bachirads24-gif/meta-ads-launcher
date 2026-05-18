@@ -9,6 +9,11 @@ interface PublicBrand {
   id: string;
   name: string;
   hasToken: boolean;
+  industry?: string;
+  audience?: string;
+  offers?: string;
+  voice?: string;
+  keywords?: string;
 }
 
 interface ConversationMeta {
@@ -317,10 +322,15 @@ export default function AssistantPage() {
     );
   }
 
-  const activeBrandName = useMemo(
-    () => brands.find((b) => b.id === brandId)?.name ?? "—",
+  const activeBrand = useMemo(
+    () => brands.find((b) => b.id === brandId),
     [brands, brandId],
   );
+  const activeBrandName = activeBrand?.name ?? "—";
+  const hasNiche = Boolean(
+    activeBrand?.industry || activeBrand?.audience || activeBrand?.offers || activeBrand?.voice || activeBrand?.keywords,
+  );
+  const showNicheHint = activeBrand && !hasNiche && me?.isAdmin;
 
   return (
     <div className="min-h-screen relative text-ink-50 font-sans selection:bg-accent-500/30 overflow-hidden bg-background">
@@ -418,6 +428,18 @@ export default function AssistantPage() {
           </header>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
+            {showNicheHint && (
+              <div className="rounded-2xl border border-warn-500/30 bg-warn-500/10 px-4 py-3 text-sm text-warn-600 flex items-start gap-3">
+                <span className="text-base">💡</span>
+                <div className="flex-1">
+                  <span className="font-bold">Astuce :</span> remplis le profil de cette marque dans{" "}
+                  <Link href="/brands" className="underline font-semibold hover:text-warn-500">
+                    /brands
+                  </Link>{" "}
+                  (industrie, public, offres, voix, mots-clés) pour des recherches Google et des suggestions ciblées sur ton industrie.
+                </div>
+              </div>
+            )}
             {messages.length === 0 && (
               <div className="max-w-2xl mx-auto text-center py-12">
                 <div className="inline-flex p-4 bg-accent-500/10 rounded-3xl mb-4">
