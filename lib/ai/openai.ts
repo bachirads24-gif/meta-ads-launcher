@@ -34,7 +34,6 @@ export async function streamAssistant(
   return client().chat.completions.create({
     model: ASSISTANT_MODEL,
     stream: true,
-    temperature: 0.6,
     messages: [
       { role: "system", content: systemInstruction },
       ...history,
@@ -47,7 +46,6 @@ export async function generateTitle(firstUserMessage: string): Promise<string> {
   try {
     const res = await client().chat.completions.create({
       model: ASSISTANT_TITLE_MODEL,
-      temperature: 0.2,
       max_tokens: 30,
       messages: [
         {
