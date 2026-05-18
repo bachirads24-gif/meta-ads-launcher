@@ -34,7 +34,7 @@ export async function streamAssistant(contents: Content[], ctx: AssistantBrandCo
       ],
       toolConfig: { includeServerSideToolInvocations: true },
       temperature: 0.6,
-      thinkingConfig: { thinkingBudget: 0 },
+      thinkingConfig: { thinkingBudget: 2048 },
     },
   });
 }
