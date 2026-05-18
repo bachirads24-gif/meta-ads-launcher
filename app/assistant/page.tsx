@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface PublicBrand {
   id: string;
@@ -502,7 +504,13 @@ export default function AssistantPage() {
                     )}
 
                     {m.text && (
-                      <div className="whitespace-pre-wrap leading-relaxed text-[15px]">{m.text}</div>
+                      m.role === "assistant" ? (
+                        <div className="markdown-body text-[15px] leading-relaxed">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="whitespace-pre-wrap leading-relaxed text-[15px]">{m.text}</div>
+                      )
                     )}
 
                     {m.streaming && !m.text && (

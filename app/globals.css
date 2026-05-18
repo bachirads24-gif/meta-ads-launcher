@@ -87,3 +87,68 @@
   .animation-delay-4000 {
     animation-delay: 4s;
   }
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.1em 0 0.5em;
+}
+.markdown-body h1 { font-size: 1.5rem; }
+.markdown-body h2 { font-size: 1.25rem; }
+.markdown-body h3 { font-size: 1.1rem; }
+.markdown-body h4 { font-size: 1rem; }
+.markdown-body :first-child { margin-top: 0; }
+.markdown-body p { margin: 0.5em 0; }
+.markdown-body strong { font-weight: 700; }
+.markdown-body em { font-style: italic; }
+.markdown-body ul,
+.markdown-body ol { margin: 0.5em 0; padding-left: 1.5em; }
+.markdown-body ul { list-style: disc; }
+.markdown-body ol { list-style: decimal; }
+.markdown-body li { margin: 0.2em 0; }
+.markdown-body li > p { margin: 0; }
+.markdown-body code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.markdown-body pre {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.75em 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+}
+.markdown-body a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+.markdown-body blockquote {
+  border-left: 3px solid rgba(0, 0, 0, 0.15);
+  padding-left: 0.9em;
+  margin: 0.6em 0;
+  color: rgba(0, 0, 0, 0.7);
+}
+.markdown-body table {
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  font-size: 0.95em;
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.35em 0.7em;
+  text-align: left;
+}
+.markdown-body th {
+  background: rgba(0, 0, 0, 0.04);
+  font-weight: 600;
+}
