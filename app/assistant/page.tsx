@@ -427,7 +427,7 @@ export default function AssistantPage() {
             <div>
               <h1 className="text-xl font-black text-ink-50">Assistant IA</h1>
               <p className="text-xs text-ink-500 font-semibold">
-                Marché algérien · Gemini 3 Pro (thinking) · {activeBrandName}
+                Marché algérien · {activeBrandName}
               </p>
             </div>
           </header>
