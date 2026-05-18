@@ -32,12 +32,11 @@ export async function POST(req: Request) {
   const brand: Brand = {
     id,
     name: (body.name ?? "").trim(),
-    pageId: (body.pageId ?? "").trim(),
     accessToken,
   };
 
-  if (!brand.name || !brand.pageId) {
-    return NextResponse.json({ error: "Tous les champs sont requis" }, { status: 400 });
+  if (!brand.name) {
+    return NextResponse.json({ error: "Nom requis" }, { status: 400 });
   }
   if (!brand.accessToken) {
     return NextResponse.json({ error: "Token d'accès Meta requis" }, { status: 400 });

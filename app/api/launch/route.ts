@@ -26,6 +26,7 @@ interface RunParams {
   brandId: string;
   adAccountId: string;
   pixelId: string;
+  pageId: string;
   headline: string;
   primaryText: string;
   landingUrl: string;
@@ -67,8 +68,10 @@ export async function POST(req: Request) {
 
   const adAccountId = (params.adAccountId ?? "").trim().replace(/^act_/, "");
   const pixelId = (params.pixelId ?? "").trim();
+  const pageId = (params.pageId ?? "").trim();
   if (!adAccountId) return new Response("Compte publicitaire manquant", { status: 400 });
   if (!pixelId) return new Response("Pixel Meta manquant", { status: 400 });
+  if (!pageId) return new Response("Page Facebook manquante", { status: 400 });
 
   const v = params.video;
   const videoName = stripExt(v.filename);
@@ -137,7 +140,7 @@ export async function POST(req: Request) {
         const creativeId = await createVideoCreative({
           adAccountId: adAccountId,
           accessToken: token,
-          pageId: brand.pageId,
+          pageId,
           videoId,
           thumbnailUrl,
           headline: params.headline,

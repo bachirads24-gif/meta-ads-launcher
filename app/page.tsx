@@ -9,7 +9,6 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 interface Brand {
   id: string;
   name: string;
-  pageId: string;
 }
 
 interface AdAccountOption {
@@ -19,6 +18,11 @@ interface AdAccountOption {
 }
 
 interface PixelOption {
+  id: string;
+  name: string;
+}
+
+interface PageOption {
   id: string;
   name: string;
 }
@@ -80,6 +84,10 @@ export default function Home() {
   const [pixelId, setPixelId] = useState<string>("");
   const [loadingPixels, setLoadingPixels] = useState(false);
   const [pixelsError, setPixelsError] = useState<string | null>(null);
+  const [pages, setPages] = useState<PageOption[]>([]);
+  const [pageId, setPageId] = useState<string>("");
+  const [loadingPages, setLoadingPages] = useState(false);
+  const [pagesError, setPagesError] = useState<string | null>(null);
   const [headline, setHeadline] = useState("");
   const [primaryText, setPrimaryText] = useState("");
   const [landingUrl, setLandingUrl] = useState("");
@@ -139,6 +147,30 @@ export default function Home() {
         setAdAccountsError(e instanceof Error ? e.message : "Erreur de chargement");
       })
       .finally(() => setLoadingAdAccounts(false));
+    return () => ctrl.abort();
+  }, [brandId]);
+
+  useEffect(() => {
+    setPages([]);
+    setPageId("");
+    setPagesError(null);
+    if (!brandId) return;
+    const ctrl = new AbortController();
+    setLoadingPages(true);
+    fetch(`/api/meta/accounts?brandId=${encodeURIComponent(brandId)}&resource=pages`, {
+      signal: ctrl.signal,
+    })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Erreur de chargement");
+        return d as { pages: PageOption[] };
+      })
+      .then((d) => setPages(d.pages || []))
+      .catch((e) => {
+        if (e.name === "AbortError") return;
+        setPagesError(e instanceof Error ? e.message : "Erreur de chargement");
+      })
+      .finally(() => setLoadingPages(false));
     return () => ctrl.abort();
   }, [brandId]);
 
@@ -210,7 +242,7 @@ export default function Home() {
   }
 
   async function launch() {
-    if (!brandId || !adAccountId || !pixelId || files.length === 0 || !headline || !primaryText) return;
+    if (!brandId || !adAccountId || !pixelId || !pageId || files.length === 0 || !headline || !primaryText) return;
     if (!hasCsv && !landingUrl) return;
     setRunning(true);
     setVideos(files.map((f) => ({ name: stripExt(f.name), status: "pending" })));
@@ -257,6 +289,7 @@ export default function Home() {
       brandId,
       adAccountId,
       pixelId,
+      pageId,
       headline,
       primaryText,
       landingUrl: hasCsv ? "" : landingUrl,
@@ -336,6 +369,7 @@ export default function Home() {
     brandId &&
     adAccountId &&
     pixelId &&
+    pageId &&
     files.length > 0 &&
     headline.trim() &&
     primaryText.trim() &&
@@ -517,6 +551,29 @@ export default function Home() {
                 {pixelsError && (
                   <p className="text-xs text-err-500 mt-1">{pixelsError}</p>
                 )}
+              </Row>
+
+              <Row label="Page Facebook">
+                <select
+                  value={pageId}
+                  onChange={(e) => setPageId(e.target.value)}
+                  disabled={!brandId || loadingPages || pages.length === 0}
+                  className="form-input bg-white/80 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {loadingPages
+                      ? "Chargement…"
+                      : pages.length === 0
+                        ? pagesError ?? "Aucune page disponible"
+                        : "— Sélectionner —"}
+                  </option>
+                  {pages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.id})
+                    </option>
+                  ))}
+                </select>
+                {pagesError && <p className="text-xs text-err-500 mt-1">{pagesError}</p>}
               </Row>
 
               <Row label={hasCsv ? "URL de destination (ignorée, CSV actif)" : "URL de destination globale"}>

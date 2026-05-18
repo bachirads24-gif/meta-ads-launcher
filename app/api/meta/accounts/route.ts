@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getBrandWithToken } from "@/lib/brands";
 import { graphGet, MetaApiError } from "@/lib/meta/client";
-import { listAdAccounts } from "@/lib/meta/accounts";
+import { listAdAccounts, listPages } from "@/lib/meta/accounts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +24,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const brandId = searchParams.get("brandId");
   const adAccountIdRaw = searchParams.get("adAccountId");
+  const resource = searchParams.get("resource");
 
   if (!brandId) return NextResponse.json({ error: "brandId requis" }, { status: 400 });
 
@@ -37,6 +38,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Token Meta non configuré pour cette marque" }, { status: 400 });
 
   try {
+    if (resource === "pages") {
+      const pages = await listPages(brand.accessToken);
+      return NextResponse.json({ pages });
+    }
     if (adAccountIdRaw) {
       const adAccountId = adAccountIdRaw.trim().replace(/^act_/, "");
       const res = await graphGet<PixelsResponse>(

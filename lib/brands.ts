@@ -3,7 +3,6 @@ import { Redis } from "@upstash/redis";
 export interface Brand {
   id: string;
   name: string;
-  pageId: string;
   accessToken: string;
 }
 
@@ -24,7 +23,6 @@ function toPublic(b: Brand): PublicBrand {
   return {
     id: b.id,
     name: b.name,
-    pageId: b.pageId,
     hasToken: !!b.accessToken,
   };
 }
