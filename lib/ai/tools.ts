@@ -55,7 +55,7 @@ export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "list_campaigns",
     description:
-      "Liste les campagnes (actives par défaut) sur un ou tous les comptes publicitaires du brand. Retourne campaignId, name, status, dailyBudget, lifetimeBudget, objective.",
+      "Liste les campagnes sur un ou tous les comptes publicitaires du brand. Retourne campaignId, name, status, dailyBudget, lifetimeBudget, objective. Utilise le paramètre `status` pour filtrer : 'active' (en diffusion, défaut), 'inactive' (en pause uniquement), ou 'all' (les deux). Quand l'utilisateur demande les campagnes inactives / en pause / arrêtées, passe `status: 'inactive'` — sinon tu ne verras que les actives et tu concluras à tort qu'il n'y en a pas.",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -64,10 +64,11 @@ export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
           type: "string",
           description: "ID du compte (sans préfixe act_). Si omis, fan-out sur tous les comptes du brand.",
         },
-        includeAll: {
-          type: "boolean",
+        status: {
+          type: "string",
+          enum: ["active", "inactive", "all"],
           description:
-            "Si true, inclure les campagnes inactives/paused. Par défaut false (ACTIVE seulement).",
+            "Filtre par statut effectif. 'active' = ACTIVE seulement (défaut). 'inactive' = PAUSED seulement. 'all' = ACTIVE + PAUSED.",
         },
       },
       required: [],
@@ -171,14 +172,28 @@ interface CampaignRaw {
   start_time?: string;
 }
 
-async function listCampaignsForAccount(adAccountId: string, token: string, includeAll: boolean) {
+type CampaignStatusFilter = "active" | "inactive" | "all";
+
+async function listCampaignsForAccount(
+  adAccountId: string,
+  token: string,
+  status: CampaignStatusFilter,
+) {
   const params: Record<string, string> = {
     fields: "id,name,status,effective_status,objective,daily_budget,lifetime_budget,start_time",
     limit: "500",
   };
-  if (!includeAll) {
+  if (status === "active") {
     params.filtering = JSON.stringify([
       { field: "effective_status", operator: "IN", value: ["ACTIVE"] },
+    ]);
+  } else if (status === "inactive") {
+    params.filtering = JSON.stringify([
+      { field: "effective_status", operator: "IN", value: ["PAUSED"] },
+    ]);
+  } else {
+    params.filtering = JSON.stringify([
+      { field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
     ]);
   }
   const res = await graphGet<{ data?: CampaignRaw[] }>(
@@ -246,7 +261,9 @@ export async function executeTool(
   }
 
   if (name === "list_campaigns") {
-    const includeAll = Boolean(args.includeAll ?? false);
+    const rawStatus = typeof args.status === "string" ? args.status : "active";
+    const status: CampaignStatusFilter =
+      rawStatus === "inactive" || rawStatus === "all" ? rawStatus : "active";
     const adAccountId = (args.adAccountId as string | undefined)?.replace(/^act_/, "");
     let targets: { id: string; name: string }[];
     if (adAccountId) {
@@ -257,7 +274,7 @@ export async function executeTool(
     }
     const results = await Promise.allSettled(
       targets.map(async (t) => {
-        const camps = await listCampaignsForAccount(t.id, token, includeAll);
+        const camps = await listCampaignsForAccount(t.id, token, status);
         return { adAccountId: t.id, adAccountName: t.name, campaigns: camps };
       }),
     );
