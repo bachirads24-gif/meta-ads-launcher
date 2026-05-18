@@ -7,7 +7,6 @@ import Link from "next/link";
 interface PublicBrand {
   id: string;
   name: string;
-  adAccountId: string;
   pageId: string;
   hasToken: boolean;
 }
@@ -15,14 +14,12 @@ interface PublicBrand {
 interface Draft {
   id?: string;
   name: string;
-  adAccountId: string;
   pageId: string;
   accessToken: string;
 }
 
 const empty: Draft = {
   name: "",
-  adAccountId: "",
   pageId: "",
   accessToken: "",
 };
@@ -84,7 +81,6 @@ export default function BrandsPage() {
   function edit(b: PublicBrand) {
     setDraft({
       name: b.name,
-      adAccountId: b.adAccountId,
       pageId: b.pageId,
       accessToken: "",
     });
@@ -117,12 +113,6 @@ export default function BrandsPage() {
         <h2 className="font-semibold mb-4">{editingId ? "Modifier la marque" : "Ajouter une marque"}</h2>
         <form onSubmit={save} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Nom de la marque" value={draft.name} onChange={(v) => setDraft({ ...draft, name: v })} />
-          <Field
-            label="Compte de reporting (alertes)"
-            value={draft.adAccountId}
-            onChange={(v) => setDraft({ ...draft, adAccountId: v })}
-            placeholder="123456789012345"
-          />
           <Field
             label="ID de la page Facebook"
             value={draft.pageId}
@@ -163,7 +153,6 @@ export default function BrandsPage() {
           <thead className="bg-ink-100 text-left">
             <tr>
               <th className="px-4 py-2">Nom</th>
-              <th className="px-4 py-2">Compte reporting</th>
               <th className="px-4 py-2">Page</th>
               <th className="px-4 py-2">Token</th>
               <th className="px-4 py-2"></th>
@@ -172,7 +161,7 @@ export default function BrandsPage() {
           <tbody>
             {brands.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-ink-500">
+                <td colSpan={4} className="px-4 py-6 text-center text-ink-500">
                   Aucune marque enregistrée
                 </td>
               </tr>
@@ -180,7 +169,6 @@ export default function BrandsPage() {
             {brands.map((b) => (
               <tr key={b.id} className="border-t border-ink-100">
                 <td className="px-4 py-2 font-medium">{b.name}</td>
-                <td className="px-4 py-2 font-mono text-xs">{b.adAccountId}</td>
                 <td className="px-4 py-2 font-mono text-xs">{b.pageId}</td>
                 <td className="px-4 py-2 text-xs">
                   {b.hasToken ? (

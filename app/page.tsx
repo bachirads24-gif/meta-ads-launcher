@@ -9,7 +9,6 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 interface Brand {
   id: string;
   name: string;
-  adAccountId: string;
   pageId: string;
 }
 

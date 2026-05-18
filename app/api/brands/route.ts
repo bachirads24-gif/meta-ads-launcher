@@ -32,12 +32,11 @@ export async function POST(req: Request) {
   const brand: Brand = {
     id,
     name: (body.name ?? "").trim(),
-    adAccountId: (body.adAccountId ?? "").trim().replace(/^act_/, ""),
     pageId: (body.pageId ?? "").trim(),
     accessToken,
   };
 
-  if (!brand.name || !brand.adAccountId || !brand.pageId) {
+  if (!brand.name || !brand.pageId) {
     return NextResponse.json({ error: "Tous les champs sont requis" }, { status: 400 });
   }
   if (!brand.accessToken) {
