@@ -55,7 +55,7 @@ export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "list_campaigns",
     description:
-      "Liste les campagnes sur un ou tous les comptes publicitaires du brand. Retourne campaignId, name, status, dailyBudget, lifetimeBudget, objective. Utilise le paramètre `status` pour filtrer : 'active' (en diffusion, défaut), 'inactive' (en pause uniquement), ou 'all' (les deux). Quand l'utilisateur demande les campagnes inactives / en pause / arrêtées, passe `status: 'inactive'` — sinon tu ne verras que les actives et tu concluras à tort qu'il n'y en a pas.",
+      "Liste les campagnes du brand. Param `status` : 'active' (défaut), 'inactive' (en pause), ou 'all'. Pour les campagnes en pause/inactives, passe status:'inactive'.",
     parametersJsonSchema: {
       type: "object",
       properties: {
