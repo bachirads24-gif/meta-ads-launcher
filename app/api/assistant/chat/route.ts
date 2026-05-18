@@ -68,10 +68,17 @@ export async function POST(req: Request) {
     user,
     defaultBrandId: isAllBrandsMode ? null : conv.meta.brandId,
   };
-  const isFirstMessage = conv.history.length === 0;
+  // Drop any legacy Gemini-shaped messages (role: "model", parts: [...])
+  // left over from before the OpenAI migration. OpenAI rejects unknown roles.
+  const validRoles = new Set(["system", "user", "assistant", "tool"]);
+  const cleanHistory = conv.history.filter(
+    (m): m is StoredMessage =>
+      m !== null && typeof m === "object" && validRoles.has((m as { role?: string }).role ?? ""),
+  );
+  const isFirstMessage = cleanHistory.length === 0;
 
   const history: StoredMessage[] = [
-    ...conv.history,
+    ...cleanHistory,
     { role: "user", content: message },
   ];
 
