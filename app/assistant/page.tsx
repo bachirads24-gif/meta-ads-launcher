@@ -45,38 +45,22 @@ interface UiMessage {
   streaming?: boolean;
 }
 
-// Convert stored Content[] history → UI messages
-interface StoredPart {
-  text?: string;
-  functionCall?: { name?: string; args?: Record<string, unknown> };
-  functionResponse?: { name?: string; response?: Record<string, unknown> };
+// Convert stored OpenAI-shaped history → UI messages
+interface StoredToolCall {
+  id?: string;
+  function?: { name?: string; arguments?: string };
 }
-interface StoredContent {
-  role: string;
-  parts?: StoredPart[];
+interface StoredMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content?: string | null;
+  tool_calls?: StoredToolCall[];
 }
 
-function historyToMessages(history: StoredContent[]): UiMessage[] {
+function historyToMessages(history: StoredMessage[]): UiMessage[] {
   const msgs: UiMessage[] = [];
-  let assistantBuffer: UiMessage | null = null;
-
-  const flush = () => {
-    if (assistantBuffer && (assistantBuffer.text || assistantBuffer.toolCalls.length > 0)) {
-      msgs.push(assistantBuffer);
-    }
-    assistantBuffer = null;
-  };
-
-  for (const c of history) {
-    const parts = c.parts ?? [];
-    if (c.role === "user") {
-      const hasFnResp = parts.some((p) => p.functionResponse);
-      if (hasFnResp) continue; // tool results are folded into the prior assistant message
-      flush();
-      const text = parts
-        .map((p) => p.text ?? "")
-        .filter(Boolean)
-        .join("");
+  for (const m of history) {
+    if (m.role === "user") {
+      const text = typeof m.content === "string" ? m.content : "";
       if (text) {
         msgs.push({
           id: crypto.randomUUID(),
@@ -86,29 +70,25 @@ function historyToMessages(history: StoredContent[]): UiMessage[] {
           sources: [],
         });
       }
-    } else if (c.role === "model") {
-      if (!assistantBuffer) {
-        assistantBuffer = {
+    } else if (m.role === "assistant") {
+      const text = typeof m.content === "string" ? m.content : "";
+      const toolCalls: ToolCall[] = (m.tool_calls ?? []).map((tc) => {
+        let args: Record<string, unknown> = {};
+        try { args = JSON.parse(tc.function?.arguments ?? "{}"); } catch {}
+        return { name: tc.function?.name ?? "tool", args, status: "done" };
+      });
+      if (text || toolCalls.length > 0) {
+        msgs.push({
           id: crypto.randomUUID(),
           role: "assistant",
-          text: "",
-          toolCalls: [],
+          text,
+          toolCalls,
           sources: [],
-        };
-      }
-      for (const p of parts) {
-        if (p.text) assistantBuffer.text += p.text;
-        if (p.functionCall) {
-          assistantBuffer.toolCalls.push({
-            name: p.functionCall.name ?? "tool",
-            args: p.functionCall.args ?? {},
-            status: "done",
-          });
-        }
+        });
       }
     }
+    // role === "tool" or "system" → skipped (folded into prior assistant)
   }
-  flush();
   return msgs;
 }
 
@@ -157,7 +137,7 @@ export default function AssistantPage() {
       return;
     }
     const d = await r.json();
-    const conv = d.conversation as { meta: ConversationMeta; history: StoredContent[] };
+    const conv = d.conversation as { meta: ConversationMeta; history: StoredMessage[] };
     setBrandId(conv.meta.brandId);
     setMessages(historyToMessages(conv.history));
   }

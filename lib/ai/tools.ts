@@ -1,4 +1,4 @@
-import type { FunctionDeclaration } from "@google/genai";
+import type { ChatCompletionTool } from "openai/resources/chat/completions";
 import { getBrandWithToken, listBrandsPublic } from "@/lib/brands";
 import type { User } from "@/lib/users";
 import { listAdAccounts } from "@/lib/meta/accounts";
@@ -31,105 +31,123 @@ const BRAND_ID_PROP = {
   },
 };
 
-export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
+export const ASSISTANT_TOOLS: ChatCompletionTool[] = [
   {
-    name: "list_brands",
-    description:
-      "Liste tous les brands accessibles à l'utilisateur (admin = tous ; user = ses brands attribués). Retourne id, name et le profil niche (industrie, public, offres, voix, mots-clés). Utilise-le en mode multi-marques pour savoir quel brandId passer aux autres outils.",
-    parametersJsonSchema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "list_ad_accounts",
-    description:
-      "Liste tous les comptes publicitaires Meta accessibles pour un brand (via le token du brand).",
-    parametersJsonSchema: {
-      type: "object",
-      properties: { ...BRAND_ID_PROP },
-      required: [],
-    },
-  },
-  {
-    name: "list_campaigns",
-    description:
-      "Liste les campagnes du brand. Param `status` : 'active' (défaut), 'inactive' (en pause), ou 'all'. Pour les campagnes en pause/inactives, passe status:'inactive'.",
-    parametersJsonSchema: {
-      type: "object",
-      properties: {
-        ...BRAND_ID_PROP,
-        adAccountId: {
-          type: "string",
-          description: "ID du compte (sans préfixe act_). Si omis, fan-out sur tous les comptes du brand.",
-        },
-        status: {
-          type: "string",
-          enum: ["active", "inactive", "all"],
-          description:
-            "Filtre par statut effectif. 'active' = ACTIVE seulement (défaut). 'inactive' = PAUSED seulement. 'all' = ACTIVE + PAUSED.",
-        },
+    type: "function",
+    function: {
+      name: "list_brands",
+      description:
+        "Liste tous les brands accessibles à l'utilisateur (admin = tous ; user = ses brands attribués). Retourne id, name et le profil niche (industrie, public, offres, voix, mots-clés). Utilise-le en mode multi-marques pour savoir quel brandId passer aux autres outils.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
       },
-      required: [],
     },
   },
   {
-    name: "get_campaign_insights",
-    description:
-      "Récupère les KPIs (spend, CPA, leads, CTR, CPM, CPC) sur la période et au niveau demandés. Niveau campaign/adset/ad.",
-    parametersJsonSchema: {
-      type: "object",
-      properties: {
-        ...BRAND_ID_PROP,
-        adAccountId: {
-          type: "string",
-          description: "ID du compte (sans préfixe act_). Si omis, fan-out sur tous les comptes du brand.",
-        },
-        level: {
-          type: "string",
-          enum: ["campaign", "adset", "ad"],
-          description: "Niveau d'agrégation. Par défaut campaign.",
-        },
-        datePreset: {
-          type: "string",
-          enum: DATE_PRESETS,
-          description: "Période. Par défaut today.",
-        },
-        activeOnly: {
-          type: "boolean",
-          description: "Filtrer aux campagnes ACTIVE seulement. Par défaut true.",
-        },
+    type: "function",
+    function: {
+      name: "list_ad_accounts",
+      description:
+        "Liste tous les comptes publicitaires Meta accessibles pour un brand (via le token du brand).",
+      parameters: {
+        type: "object",
+        properties: { ...BRAND_ID_PROP },
+        required: [],
       },
-      required: [],
     },
   },
   {
-    name: "get_ad_creative",
-    description:
-      "Récupère le contenu créatif d'une publicité : titre (headline), texte principal (primary text), URL de destination, nom de la vidéo.",
-    parametersJsonSchema: {
-      type: "object",
-      properties: {
-        ...BRAND_ID_PROP,
-        adId: { type: "string", description: "ID de la publicité Meta." },
+    type: "function",
+    function: {
+      name: "list_campaigns",
+      description:
+        "Liste les campagnes du brand. Param `status` : 'active' (défaut), 'inactive' (en pause), ou 'all'. Pour les campagnes en pause/inactives, passe status:'inactive'.",
+      parameters: {
+        type: "object",
+        properties: {
+          ...BRAND_ID_PROP,
+          adAccountId: {
+            type: "string",
+            description: "ID du compte (sans préfixe act_). Si omis, fan-out sur tous les comptes du brand.",
+          },
+          status: {
+            type: "string",
+            enum: ["active", "inactive", "all"],
+            description:
+              "Filtre par statut effectif. 'active' = ACTIVE seulement (défaut). 'inactive' = PAUSED seulement. 'all' = ACTIVE + PAUSED.",
+          },
+        },
+        required: [],
       },
-      required: ["adId"],
     },
   },
   {
-    name: "compare_periods",
-    description:
-      "Compare deux périodes de performance (ex. last_7d vs previous 7d) pour repérer les tendances. Retourne le delta en % par campagne.",
-    parametersJsonSchema: {
-      type: "object",
-      properties: {
-        ...BRAND_ID_PROP,
-        adAccountId: { type: "string" },
-        periodA: { type: "string", enum: DATE_PRESETS, description: "Période A (généralement récente)." },
-        periodB: { type: "string", enum: DATE_PRESETS, description: "Période B (généralement antérieure)." },
+    type: "function",
+    function: {
+      name: "get_campaign_insights",
+      description:
+        "Récupère les KPIs (spend, CPA, leads, CTR, CPM, CPC) sur la période et au niveau demandés. Niveau campaign/adset/ad.",
+      parameters: {
+        type: "object",
+        properties: {
+          ...BRAND_ID_PROP,
+          adAccountId: {
+            type: "string",
+            description: "ID du compte (sans préfixe act_). Si omis, fan-out sur tous les comptes du brand.",
+          },
+          level: {
+            type: "string",
+            enum: ["campaign", "adset", "ad"],
+            description: "Niveau d'agrégation. Par défaut campaign.",
+          },
+          datePreset: {
+            type: "string",
+            enum: DATE_PRESETS,
+            description: "Période. Par défaut today.",
+          },
+          activeOnly: {
+            type: "boolean",
+            description: "Filtrer aux campagnes ACTIVE seulement. Par défaut true.",
+          },
+        },
+        required: [],
       },
-      required: ["periodA", "periodB"],
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_ad_creative",
+      description:
+        "Récupère le contenu créatif d'une publicité : titre (headline), texte principal (primary text), URL de destination, nom de la vidéo.",
+      parameters: {
+        type: "object",
+        properties: {
+          ...BRAND_ID_PROP,
+          adId: { type: "string", description: "ID de la publicité Meta." },
+        },
+        required: ["adId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "compare_periods",
+      description:
+        "Compare deux périodes de performance (ex. last_7d vs previous 7d) pour repérer les tendances. Retourne le delta en % par campagne.",
+      parameters: {
+        type: "object",
+        properties: {
+          ...BRAND_ID_PROP,
+          adAccountId: { type: "string" },
+          periodA: { type: "string", enum: DATE_PRESETS, description: "Période A (généralement récente)." },
+          periodB: { type: "string", enum: DATE_PRESETS, description: "Période B (généralement antérieure)." },
+        },
+        required: ["periodA", "periodB"],
+      },
     },
   },
 ];

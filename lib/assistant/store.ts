@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis";
-import type { Content } from "@google/genai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 export interface ConversationMeta {
   id: string;
@@ -9,9 +9,11 @@ export interface ConversationMeta {
   updatedAt: number;
 }
 
+export type StoredMessage = ChatCompletionMessageParam;
+
 export interface Conversation {
   meta: ConversationMeta;
-  history: Content[];
+  history: StoredMessage[];
 }
 
 function redis(): Redis {
@@ -33,7 +35,7 @@ export async function listConversations(userId: string): Promise<ConversationMet
 export async function getConversation(userId: string, convId: string): Promise<Conversation | null> {
   const [metaArr, history] = await Promise.all([
     redis().get<ConversationMeta[]>(indexKey(userId)),
-    redis().get<Content[]>(convKey(userId, convId)),
+    redis().get<StoredMessage[]>(convKey(userId, convId)),
   ]);
   const meta = (metaArr ?? []).find((m) => m.id === convId);
   if (!meta) return null;
@@ -57,7 +59,7 @@ export async function createConversation(userId: string, brandId: string): Promi
   return meta;
 }
 
-export async function saveHistory(userId: string, convId: string, history: Content[]): Promise<void> {
+export async function saveHistory(userId: string, convId: string, history: StoredMessage[]): Promise<void> {
   await redis().set(convKey(userId, convId), history);
 }
 

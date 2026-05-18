@@ -1,9 +1,17 @@
 import { getCurrentUser } from "@/lib/auth";
-import { getConversation, saveHistory, updateMeta } from "@/lib/assistant/store";
-import { streamAssistant, generateTitle, type AssistantBrandContext } from "@/lib/ai/gemini";
+import { getConversation, saveHistory, updateMeta, type StoredMessage } from "@/lib/assistant/store";
+import { streamAssistant, generateTitle, type AssistantBrandContext } from "@/lib/ai/openai";
 import { executeTool, type ToolContext } from "@/lib/ai/tools";
 import { getBrandWithToken, listBrandsPublic, type Brand } from "@/lib/brands";
-import type { Content, Part } from "@google/genai";
+import type {
+  ChatCompletionAssistantMessageParam,
+} from "openai/resources/chat/completions";
+
+type FunctionToolCall = {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+};
 
 const ALL_BRANDS_SENTINEL = "*";
 
@@ -18,7 +26,6 @@ interface ChatRequest {
 type Event =
   | { type: "text"; delta: string }
   | { type: "tool"; name: string; args: Record<string, unknown>; status: "running" | "done" | "error"; error?: string }
-  | { type: "grounding"; sources: { uri?: string; title?: string }[] }
   | { type: "title"; title: string }
   | { type: "done" }
   | { type: "error"; error: string };
@@ -63,9 +70,9 @@ export async function POST(req: Request) {
   };
   const isFirstMessage = conv.history.length === 0;
 
-  const history: Content[] = [
+  const history: StoredMessage[] = [
     ...conv.history,
-    { role: "user", parts: [{ text: message }] },
+    { role: "user", content: message },
   ];
 
   const encoder = new TextEncoder();
@@ -84,75 +91,76 @@ export async function POST(req: Request) {
         let safetyHops = 0;
         while (safetyHops++ < 8) {
           const iter = await streamAssistant(history, brandCtx);
-          const assistantParts: Part[] = [];
-          const pendingFnCalls: { name: string; args: Record<string, unknown>; id?: string }[] = [];
-          let groundingSent = false;
+
+          let assistantText = "";
+          const toolCallBuf: Record<number, { id: string; name: string; args: string }> = {};
 
           for await (const chunk of iter) {
-            const cand = chunk.candidates?.[0];
-            const parts = cand?.content?.parts ?? [];
-            for (const p of parts) {
-              // Preserve the full part (including any thoughtSignature on
-              // thought, text, or functionCall parts) — Gemini 3 requires it.
-              assistantParts.push(p);
-              if (p.text && !p.thought) {
-                send({ type: "text", delta: p.text });
-              }
-              if (p.functionCall) {
-                const name = p.functionCall.name ?? "";
-                const args = (p.functionCall.args ?? {}) as Record<string, unknown>;
-                pendingFnCalls.push({ name, args, id: p.functionCall.id });
-                send({ type: "tool", name, args, status: "running" });
-              }
+            const delta = chunk.choices[0]?.delta;
+            if (!delta) continue;
+            if (typeof delta.content === "string" && delta.content.length > 0) {
+              assistantText += delta.content;
+              send({ type: "text", delta: delta.content });
             }
-            if (!groundingSent && cand?.groundingMetadata?.groundingChunks) {
-              const sources = cand.groundingMetadata.groundingChunks
-                .map((g) => ({ uri: g.web?.uri, title: g.web?.title }))
-                .filter((s) => s.uri);
-              if (sources.length > 0) {
-                send({ type: "grounding", sources });
-                groundingSent = true;
-              }
+            for (const tc of delta.tool_calls ?? []) {
+              const idx = tc.index ?? 0;
+              const slot = toolCallBuf[idx] ?? { id: "", name: "", args: "" };
+              if (tc.id) slot.id = tc.id;
+              if (tc.function?.name) slot.name = tc.function.name;
+              if (tc.function?.arguments) slot.args += tc.function.arguments;
+              toolCallBuf[idx] = slot;
             }
           }
 
-          if (assistantParts.length > 0) {
-            history.push({ role: "model", parts: assistantParts });
-          }
+          const toolCalls: FunctionToolCall[] = Object.values(toolCallBuf)
+            .filter((s) => s.id && s.name)
+            .map((s) => ({
+              id: s.id,
+              type: "function" as const,
+              function: { name: s.name, arguments: s.args || "{}" },
+            }));
 
-          if (pendingFnCalls.length === 0) break;
+          const assistantMsg: ChatCompletionAssistantMessageParam = {
+            role: "assistant",
+            content: assistantText || null,
+          };
+          if (toolCalls.length > 0) assistantMsg.tool_calls = toolCalls;
+          history.push(assistantMsg);
 
-          const toolResponseParts: Part[] = [];
-          for (const call of pendingFnCalls) {
+          if (toolCalls.length === 0) break;
+
+          for (const call of toolCalls) {
+            let parsedArgs: Record<string, unknown> = {};
             try {
-              const result = await executeTool(call.name, call.args, ctx);
-              send({ type: "tool", name: call.name, args: call.args, status: "done" });
-              toolResponseParts.push({
-                functionResponse: {
-                  id: call.id,
-                  name: call.name,
-                  response: { result },
-                },
+              parsedArgs = JSON.parse(call.function.arguments || "{}");
+            } catch {
+              parsedArgs = {};
+            }
+            send({ type: "tool", name: call.function.name, args: parsedArgs, status: "running" });
+            try {
+              const result = await executeTool(call.function.name, parsedArgs, ctx);
+              send({ type: "tool", name: call.function.name, args: parsedArgs, status: "done" });
+              history.push({
+                role: "tool",
+                tool_call_id: call.id,
+                content: JSON.stringify(result),
               });
             } catch (e) {
               const errorMsg = e instanceof Error ? e.message : String(e);
               send({
                 type: "tool",
-                name: call.name,
-                args: call.args,
+                name: call.function.name,
+                args: parsedArgs,
                 status: "error",
                 error: errorMsg,
               });
-              toolResponseParts.push({
-                functionResponse: {
-                  id: call.id,
-                  name: call.name,
-                  response: { error: errorMsg },
-                },
+              history.push({
+                role: "tool",
+                tool_call_id: call.id,
+                content: JSON.stringify({ error: errorMsg }),
               });
             }
           }
-          history.push({ role: "user", parts: toolResponseParts });
         }
 
         await saveHistory(user.id, conversationId, history);
