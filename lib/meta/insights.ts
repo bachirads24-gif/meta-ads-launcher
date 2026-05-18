@@ -13,6 +13,10 @@ export interface CampaignInsightRow {
   cpc: number;
   adAccountId: string;
   adAccountName: string;
+  adsetId?: string;
+  adsetName?: string;
+  adId?: string;
+  adName?: string;
 }
 
 export interface AccountFetchError {
@@ -29,6 +33,10 @@ export interface AllAccountsInsights {
 interface InsightApiRow {
   campaign_id?: string;
   campaign_name?: string;
+  adset_id?: string;
+  adset_name?: string;
+  ad_id?: string;
+  ad_name?: string;
   spend?: string;
   impressions?: string;
   clicks?: string;
@@ -56,21 +64,39 @@ function pickActionValue(rows: { action_type: string; value: string }[] | undefi
   return 0;
 }
 
+export type InsightLevel = "campaign" | "adset" | "ad";
+export type DatePreset = "today" | "yesterday" | "last_3d" | "last_7d" | "last_14d" | "last_30d" | "last_90d" | "this_month" | "last_month" | "maximum";
+
 export async function fetchInsightsForAccount(
   adAccountId: string,
   adAccountName: string,
   token: string,
+  opts: { level?: InsightLevel; datePreset?: DatePreset; activeOnly?: boolean } = {},
 ): Promise<CampaignInsightRow[]> {
+  const level = opts.level ?? "campaign";
+  const datePreset = opts.datePreset ?? "today";
+  const activeOnly = opts.activeOnly ?? true;
+
+  const baseFields = "campaign_id,campaign_name,spend,impressions,clicks,ctr,cpm,cpc,actions,cost_per_action_type";
+  const levelExtra =
+    level === "adset"
+      ? ",adset_id,adset_name"
+      : level === "ad"
+        ? ",adset_id,adset_name,ad_id,ad_name"
+        : "";
+
   const params: Record<string, string> = {
-    level: "campaign",
-    date_preset: "today",
-    fields:
-      "campaign_id,campaign_name,spend,impressions,clicks,ctr,cpm,cpc,actions,cost_per_action_type",
-    filtering: JSON.stringify([
-      { field: "campaign.effective_status", operator: "IN", value: ["ACTIVE"] },
-    ]),
+    level,
+    date_preset: datePreset,
+    fields: baseFields + levelExtra,
     limit: "500",
   };
+
+  if (activeOnly) {
+    params.filtering = JSON.stringify([
+      { field: "campaign.effective_status", operator: "IN", value: ["ACTIVE"] },
+    ]);
+  }
 
   const res = await graphGet<{ data: InsightApiRow[] }>(
     `/act_${adAccountId}/insights`,
@@ -94,6 +120,10 @@ export async function fetchInsightsForAccount(
       cpc: Number(r.cpc ?? 0),
       adAccountId,
       adAccountName,
+      adsetId: r.adset_id,
+      adsetName: r.adset_name,
+      adId: r.ad_id,
+      adName: r.ad_name,
     };
   });
 }

@@ -116,6 +116,9 @@ export default function AlertsPage() {
             >
               {loading ? "Chargement…" : "Rafraîchir"}
             </button>
+            <Link href="/assistant" className="text-accent-500 hover:text-accent-600 transition-colors text-sm font-semibold">
+              Assistant
+            </Link>
             <Link href="/" className="text-accent-500 hover:text-accent-600 transition-colors text-sm font-semibold">
               ← Lanceur
             </Link>

@@ -443,6 +443,7 @@ export default function Home() {
             </div>
           </div>
           <nav className="flex items-center gap-6 text-sm font-semibold">
+            <Link href="/assistant" className="text-accent-500 hover:text-accent-600 transition-colors">Assistant</Link>
             <Link href="/alerts" className="text-accent-500 hover:text-accent-600 transition-colors">Alertes</Link>
             {me?.isAdmin && (
               <>
