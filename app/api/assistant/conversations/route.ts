@@ -20,7 +20,11 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const { brandId } = (await req.json()) as { brandId?: string };
   if (!brandId) return NextResponse.json({ error: "brandId requis" }, { status: 400 });
-  if (!user.isAdmin && !user.brandIds.includes(brandId)) {
+  if (brandId === "*") {
+    if (!user.isAdmin) {
+      return NextResponse.json({ error: "Mode multi-marques réservé aux admins" }, { status: 403 });
+    }
+  } else if (!user.isAdmin && !user.brandIds.includes(brandId)) {
     return NextResponse.json({ error: "Brand non autorisé" }, { status: 403 });
   }
   const meta = await createConversation(user.id, brandId);

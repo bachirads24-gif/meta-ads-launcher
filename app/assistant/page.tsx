@@ -322,15 +322,16 @@ export default function AssistantPage() {
     );
   }
 
+  const isAllBrands = brandId === "*";
   const activeBrand = useMemo(
-    () => brands.find((b) => b.id === brandId),
-    [brands, brandId],
+    () => (isAllBrands ? undefined : brands.find((b) => b.id === brandId)),
+    [brands, brandId, isAllBrands],
   );
-  const activeBrandName = activeBrand?.name ?? "—";
+  const activeBrandName = isAllBrands ? "Toutes les marques" : (activeBrand?.name ?? "—");
   const hasNiche = Boolean(
     activeBrand?.industry || activeBrand?.audience || activeBrand?.offers || activeBrand?.voice || activeBrand?.keywords,
   );
-  const showNicheHint = activeBrand && !hasNiche && me?.isAdmin;
+  const showNicheHint = !isAllBrands && activeBrand && !hasNiche && me?.isAdmin;
 
   return (
     <div className="min-h-screen relative text-ink-50 font-sans selection:bg-accent-500/30 overflow-hidden bg-background">
@@ -358,6 +359,7 @@ export default function AssistantPage() {
               onChange={(e) => setBrandId(e.target.value)}
               className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:border-accent-500"
             >
+              {me?.isAdmin && <option value="*">⭐ Toutes les marques</option>}
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -379,7 +381,10 @@ export default function AssistantPage() {
               <p className="text-xs text-ink-400 italic px-2 mt-2">Aucune conversation. Commence ci-dessous.</p>
             )}
             {conversations.map((c) => {
-              const brandName = brands.find((b) => b.id === c.brandId)?.name;
+              const brandName =
+                c.brandId === "*"
+                  ? "Toutes les marques"
+                  : brands.find((b) => b.id === c.brandId)?.name;
               return (
                 <div
                   key={c.id}
@@ -422,7 +427,7 @@ export default function AssistantPage() {
             <div>
               <h1 className="text-xl font-black text-ink-50">Assistant IA</h1>
               <p className="text-xs text-ink-500 font-semibold">
-                Marché algérien · Gemini 2.5 Pro · {activeBrandName}
+                Marché algérien · Gemini 3 Pro (thinking) · {activeBrandName}
               </p>
             </div>
           </header>

@@ -39,7 +39,7 @@ Tu as accès en lecture seule aux données Meta de l'utilisateur via des functio
 - Si une donnée manque, demande la précision avant de t'engager.
 `;
 
-export function buildSystemInstruction(brand: Brand): string {
+function brandProfileBlock(brand: Brand): string {
   const fields: [string, string | undefined][] = [
     ["Industrie", brand.industry],
     ["Public cible", brand.audience],
@@ -48,7 +48,34 @@ export function buildSystemInstruction(brand: Brand): string {
     ["Mots-clés", brand.keywords],
   ];
   const active = fields.filter(([, v]) => v && v.trim().length > 0);
-  if (active.length === 0) return SYSTEM_INSTRUCTION;
-  const block = active.map(([k, v]) => `- ${k} : ${v!.trim()}`).join("\n");
+  if (active.length === 0) return "(profil non renseigné)";
+  return active.map(([k, v]) => `- ${k} : ${v!.trim()}`).join("\n");
+}
+
+export function buildSystemInstruction(brand: Brand): string {
+  const block = brandProfileBlock(brand);
+  if (block === "(profil non renseigné)") return SYSTEM_INSTRUCTION;
   return `${SYSTEM_INSTRUCTION}\n\n## Marque active : ${brand.name}\n${block}\n\nOriente systématiquement tes recherches Google et tes suggestions selon ce profil. Cite des références, benchmarks et tendances spécifiques à cette industrie quand pertinent — n'utilise pas de conseils génériques quand tu peux être spécifique.`;
+}
+
+export function buildAdminAllBrandsInstruction(brands: Brand[]): string {
+  if (brands.length === 0) {
+    return `${SYSTEM_INSTRUCTION}\n\n## Mode multi-marques (admin)\nAucune marque enregistrée pour le moment.`;
+  }
+  const blocks = brands
+    .map((b) => `### ${b.name} \`(brandId: ${b.id})\`\n${brandProfileBlock(b)}`)
+    .join("\n\n");
+  return `${SYSTEM_INSTRUCTION}\n\n## Mode multi-marques (admin)
+Tu as accès à TOUTES les marques ci-dessous. Chaque outil accepte un paramètre \`brandId\` obligatoire dans ce mode — passe l'ID correspondant à la marque que tu analyses.
+
+**Règles clés :**
+- Si l'utilisateur ne précise pas la marque, demande laquelle (ou propose une comparaison).
+- Pour comparer plusieurs marques, appelle les outils une fois par marque puis synthétise.
+- Quand tu donnes des conseils créatifs (accroches, hooks, vidéos), respecte la voix et l'industrie de la marque concernée — pas un mix générique.
+- Utilise \`list_brands\` si tu as besoin de te rafraîchir la liste.
+
+## Marques disponibles
+${blocks}
+
+Oriente tes recherches Google selon l'industrie de la marque que tu analyses à chaque tour.`;
 }

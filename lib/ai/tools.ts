@@ -1,5 +1,5 @@
 import type { FunctionDeclaration } from "@google/genai";
-import { getBrandWithToken } from "@/lib/brands";
+import { getBrandWithToken, listBrandsPublic } from "@/lib/brands";
 import type { User } from "@/lib/users";
 import { listAdAccounts } from "@/lib/meta/accounts";
 import {
@@ -23,14 +23,32 @@ const DATE_PRESETS: DatePreset[] = [
   "maximum",
 ];
 
+const BRAND_ID_PROP = {
+  brandId: {
+    type: "string",
+    description:
+      "ID du brand. Obligatoire en mode multi-marques (admin) si la conversation n'est pas verrouillée sur une marque. Sinon, omet ce champ pour utiliser le brand de la conversation.",
+  },
+};
+
 export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
-    name: "list_ad_accounts",
+    name: "list_brands",
     description:
-      "Liste tous les comptes publicitaires Meta accessibles pour le brand sélectionné (via le token du brand).",
+      "Liste tous les brands accessibles à l'utilisateur (admin = tous ; user = ses brands attribués). Retourne id, name et le profil niche (industrie, public, offres, voix, mots-clés). Utilise-le en mode multi-marques pour savoir quel brandId passer aux autres outils.",
     parametersJsonSchema: {
       type: "object",
       properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "list_ad_accounts",
+    description:
+      "Liste tous les comptes publicitaires Meta accessibles pour un brand (via le token du brand).",
+    parametersJsonSchema: {
+      type: "object",
+      properties: { ...BRAND_ID_PROP },
       required: [],
     },
   },
@@ -41,9 +59,10 @@ export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
     parametersJsonSchema: {
       type: "object",
       properties: {
+        ...BRAND_ID_PROP,
         adAccountId: {
           type: "string",
-          description: "ID du compte (sans préfixe act_). Si omis, fan-out sur tous les comptes.",
+          description: "ID du compte (sans préfixe act_). Si omis, fan-out sur tous les comptes du brand.",
         },
         includeAll: {
           type: "boolean",
@@ -61,9 +80,10 @@ export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
     parametersJsonSchema: {
       type: "object",
       properties: {
+        ...BRAND_ID_PROP,
         adAccountId: {
           type: "string",
-          description: "ID du compte (sans préfixe act_). Si omis, fan-out sur tous les comptes.",
+          description: "ID du compte (sans préfixe act_). Si omis, fan-out sur tous les comptes du brand.",
         },
         level: {
           type: "string",
@@ -90,6 +110,7 @@ export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
     parametersJsonSchema: {
       type: "object",
       properties: {
+        ...BRAND_ID_PROP,
         adId: { type: "string", description: "ID de la publicité Meta." },
       },
       required: ["adId"],
@@ -102,6 +123,7 @@ export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
     parametersJsonSchema: {
       type: "object",
       properties: {
+        ...BRAND_ID_PROP,
         adAccountId: { type: "string" },
         periodA: { type: "string", enum: DATE_PRESETS, description: "Période A (généralement récente)." },
         periodB: { type: "string", enum: DATE_PRESETS, description: "Période B (généralement antérieure)." },
@@ -113,14 +135,26 @@ export const ASSISTANT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
 
 export interface ToolContext {
   user: User;
-  brandId: string;
+  /** Default brand for the conversation. null in admin "all brands" mode. */
+  defaultBrandId: string | null;
 }
 
-async function loadBrandAndToken(ctx: ToolContext) {
-  if (!ctx.user.isAdmin && !ctx.user.brandIds.includes(ctx.brandId)) {
+function resolveBrandId(args: Record<string, unknown>, ctx: ToolContext): string {
+  const fromArg = typeof args.brandId === "string" ? args.brandId.trim() : "";
+  const resolved = fromArg || ctx.defaultBrandId || "";
+  if (!resolved) {
+    throw new Error(
+      "brandId requis : la conversation est en mode multi-marques. Appelle list_brands puis passe brandId à chaque outil.",
+    );
+  }
+  return resolved;
+}
+
+async function loadBrandAndToken(brandId: string, user: User) {
+  if (!user.isAdmin && !user.brandIds.includes(brandId)) {
     throw new Error("Brand non autorisé pour cet utilisateur");
   }
-  const brand = await getBrandWithToken(ctx.brandId);
+  const brand = await getBrandWithToken(brandId);
   if (!brand) throw new Error("Brand introuvable");
   if (!brand.accessToken) throw new Error("Token Meta non configuré pour ce brand");
   return brand;
@@ -179,7 +213,25 @@ export async function executeTool(
   args: Record<string, unknown>,
   ctx: ToolContext,
 ): Promise<Record<string, unknown>> {
-  const brand = await loadBrandAndToken(ctx);
+  if (name === "list_brands") {
+    const all = await listBrandsPublic();
+    const visible = ctx.user.isAdmin ? all : all.filter((b) => ctx.user.brandIds.includes(b.id));
+    return {
+      brands: visible.map((b) => ({
+        id: b.id,
+        name: b.name,
+        industry: b.industry ?? null,
+        audience: b.audience ?? null,
+        offers: b.offers ?? null,
+        voice: b.voice ?? null,
+        keywords: b.keywords ?? null,
+        hasToken: b.hasToken,
+      })),
+    };
+  }
+
+  const brandId = resolveBrandId(args, ctx);
+  const brand = await loadBrandAndToken(brandId, ctx.user);
   const token = brand.accessToken;
 
   if (name === "list_ad_accounts") {

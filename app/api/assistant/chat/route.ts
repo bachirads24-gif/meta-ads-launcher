@@ -1,9 +1,11 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getConversation, saveHistory, updateMeta } from "@/lib/assistant/store";
-import { streamAssistant, generateTitle } from "@/lib/ai/gemini";
+import { streamAssistant, generateTitle, type AssistantBrandContext } from "@/lib/ai/gemini";
 import { executeTool, type ToolContext } from "@/lib/ai/tools";
-import { getBrandWithToken } from "@/lib/brands";
+import { getBrandWithToken, listBrandsPublic, type Brand } from "@/lib/brands";
 import type { Content, Part } from "@google/genai";
+
+const ALL_BRANDS_SENTINEL = "*";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -33,14 +35,32 @@ export async function POST(req: Request) {
   const conv = await getConversation(user.id, conversationId);
   if (!conv) return new Response("Conversation introuvable", { status: 404 });
 
-  if (!user.isAdmin && !user.brandIds.includes(conv.meta.brandId)) {
+  const isAllBrandsMode = conv.meta.brandId === ALL_BRANDS_SENTINEL;
+  if (isAllBrandsMode && !user.isAdmin) {
+    return new Response("Mode multi-marques réservé aux admins", { status: 403 });
+  }
+  if (!isAllBrandsMode && !user.isAdmin && !user.brandIds.includes(conv.meta.brandId)) {
     return new Response("Brand non autorisé", { status: 403 });
   }
 
-  const brand = await getBrandWithToken(conv.meta.brandId);
-  if (!brand) return new Response("Marque introuvable", { status: 404 });
+  let brandCtx: AssistantBrandContext;
+  if (isAllBrandsMode) {
+    const publicBrands = await listBrandsPublic();
+    const loaded = await Promise.all(
+      publicBrands.map(async (pb) => (await getBrandWithToken(pb.id)) as Brand | null),
+    );
+    const brands = loaded.filter((b): b is Brand => b !== null);
+    brandCtx = { mode: "all", brands };
+  } else {
+    const brand = await getBrandWithToken(conv.meta.brandId);
+    if (!brand) return new Response("Marque introuvable", { status: 404 });
+    brandCtx = { mode: "single", brand };
+  }
 
-  const ctx: ToolContext = { user, brandId: conv.meta.brandId };
+  const ctx: ToolContext = {
+    user,
+    defaultBrandId: isAllBrandsMode ? null : conv.meta.brandId,
+  };
   const isFirstMessage = conv.history.length === 0;
 
   const history: Content[] = [
@@ -63,7 +83,7 @@ export async function POST(req: Request) {
 
         let safetyHops = 0;
         while (safetyHops++ < 8) {
-          const iter = await streamAssistant(history, brand);
+          const iter = await streamAssistant(history, brandCtx);
           const assistantParts: Part[] = [];
           const pendingFnCalls: { name: string; args: Record<string, unknown>; id?: string }[] = [];
           let groundingSent = false;

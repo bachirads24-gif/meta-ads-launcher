@@ -1,9 +1,10 @@
 import { GoogleGenAI, type Content } from "@google/genai";
 import { ASSISTANT_TOOL_DECLARATIONS } from "./tools";
-import { buildSystemInstruction } from "./system-prompt";
+import { buildAdminAllBrandsInstruction, buildSystemInstruction } from "./system-prompt";
 import type { Brand } from "@/lib/brands";
 
-export const ASSISTANT_MODEL = "gemini-2.5-pro";
+export const ASSISTANT_MODEL = "gemini-3-pro";
+export const ASSISTANT_TITLE_MODEL = "gemini-3-flash";
 
 function client(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -11,18 +12,28 @@ function client(): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
-export async function streamAssistant(contents: Content[], brand: Brand) {
+export type AssistantBrandContext =
+  | { mode: "single"; brand: Brand }
+  | { mode: "all"; brands: Brand[] };
+
+export async function streamAssistant(contents: Content[], ctx: AssistantBrandContext) {
   const ai = client();
+  const systemInstruction =
+    ctx.mode === "single"
+      ? buildSystemInstruction(ctx.brand)
+      : buildAdminAllBrandsInstruction(ctx.brands);
+
   return ai.models.generateContentStream({
     model: ASSISTANT_MODEL,
     contents,
     config: {
-      systemInstruction: buildSystemInstruction(brand),
+      systemInstruction,
       tools: [
         { functionDeclarations: ASSISTANT_TOOL_DECLARATIONS },
         { googleSearch: {} },
       ],
       temperature: 0.6,
+      thinkingConfig: { thinkingBudget: -1 },
     },
   });
 }
@@ -31,7 +42,7 @@ export async function generateTitle(firstUserMessage: string): Promise<string> {
   const ai = client();
   try {
     const res = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: ASSISTANT_TITLE_MODEL,
       contents: [
         {
           role: "user",
