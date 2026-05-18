@@ -13,19 +13,27 @@ interface AlertRow {
   ctr: number;
   cpm: number;
   cpc: number;
+  adAccountId: string;
+  adAccountName: string;
   advice: string[];
+}
+
+interface AccountError {
+  adAccountId: string;
+  adAccountName: string;
+  error: string;
 }
 
 interface BrandAlerts {
   brandId: string;
   brandName: string;
   rows: AlertRow[];
+  accountErrors: AccountError[];
   error?: string;
 }
 
 interface AlertsResponse {
   brands: BrandAlerts[];
-  adAccountByBrand: Record<string, string>;
 }
 
 const CPA_THRESHOLD = 2.8;
@@ -153,6 +161,16 @@ export default function AlertsPage() {
               </div>
             )}
 
+            {b.accountErrors.length > 0 && (
+              <div className="rounded-2xl border border-warn-500/30 bg-warn-500/10 p-4 text-sm text-warn-600 space-y-1">
+                {b.accountErrors.map((ae) => (
+                  <div key={ae.adAccountId}>
+                    <span className="font-bold">{ae.adAccountName}</span> — {ae.error}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {b.rows.length === 0 && !b.error && (
               <p className="text-sm text-ink-500 italic">Aucune campagne au-dessus du seuil.</p>
             )}
@@ -167,6 +185,9 @@ export default function AlertsPage() {
 
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
+                      <div className="inline-flex items-center gap-2 mb-1.5 px-2.5 py-1 rounded-lg bg-surface border border-surface-border text-[10px] font-black uppercase tracking-wider text-ink-500">
+                        {r.adAccountName}
+                      </div>
                       <h3 className="text-lg font-black text-ink-50 truncate">{r.name}</h3>
                       <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                         <Stat label="CPA" value={`$${r.cpa.toFixed(2)}`} highlight />
@@ -176,7 +197,7 @@ export default function AlertsPage() {
                       </div>
                     </div>
                     <a
-                      href={adsManagerUrl(data.adAccountByBrand[b.brandId], r.campaignId)}
+                      href={adsManagerUrl(r.adAccountId, r.campaignId)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="shrink-0 text-sm font-bold bg-accent-500 hover:bg-accent-600 text-white px-4 py-2.5 rounded-xl shadow-md transition-colors"

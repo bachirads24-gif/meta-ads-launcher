@@ -35,9 +35,12 @@ export function buildTelegramMessage(
   for (const b of perBrand) {
     lines.push("");
     lines.push(`*${b.brandName}*`);
+    const uniqueAccounts = new Set(b.rows.map((r) => r.adAccountName));
+    const showAccount = uniqueAccounts.size > 1;
     for (const r of b.rows) {
+      const prefix = showAccount ? `[${r.adAccountName}] ` : "";
       lines.push(
-        `• ${r.name} — CPA $${r.cpa.toFixed(2)} (spend $${r.spend.toFixed(2)}, ${r.leads} lead${r.leads === 1 ? "" : "s"})`,
+        `• ${prefix}${r.name} — CPA $${r.cpa.toFixed(2)} (spend $${r.spend.toFixed(2)}, ${r.leads} lead${r.leads === 1 ? "" : "s"})`,
       );
       lines.push(`   ↳ ${r.advice[0]}`);
     }

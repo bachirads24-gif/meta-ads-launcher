@@ -3,9 +3,9 @@ import { Redis } from "@upstash/redis";
 export interface Brand {
   id: string;
   name: string;
+  // Reporting ad account used by /alerts. Launcher picks its own ad account per launch.
   adAccountId: string;
   pageId: string;
-  pixelId: string;
   accessToken: string;
 }
 
@@ -28,7 +28,6 @@ function toPublic(b: Brand): PublicBrand {
     name: b.name,
     adAccountId: b.adAccountId,
     pageId: b.pageId,
-    pixelId: b.pixelId,
     hasToken: !!b.accessToken,
   };
 }

@@ -24,6 +24,8 @@ interface VideoInput {
 
 interface RunParams {
   brandId: string;
+  adAccountId: string;
+  pixelId: string;
   headline: string;
   primaryText: string;
   landingUrl: string;
@@ -63,6 +65,11 @@ export async function POST(req: Request) {
   const brand = await getBrandWithToken(params.brandId);
   if (!brand) return new Response("Marque introuvable", { status: 400 });
 
+  const adAccountId = (params.adAccountId ?? "").trim().replace(/^act_/, "");
+  const pixelId = (params.pixelId ?? "").trim();
+  if (!adAccountId) return new Response("Compte publicitaire manquant", { status: 400 });
+  if (!pixelId) return new Response("Pixel Meta manquant", { status: 400 });
+
   const v = params.video;
   const videoName = stripExt(v.filename);
 
@@ -92,14 +99,14 @@ export async function POST(req: Request) {
         const fileBlob = await blobRes.blob();
 
         send({ type: "video", videoName, step: "Téléversement vers Meta…" });
-        const videoId = await uploadVideo(brand.adAccountId, fileBlob, v.filename, token);
+        const videoId = await uploadVideo(adAccountId, fileBlob, v.filename, token);
 
         send({ type: "video", videoName, step: "Traitement par Meta…" });
         await waitForVideoReady(videoId, token);
 
         send({ type: "video", videoName, step: "Création de la campagne…" });
         const campaignId = await createCampaign({
-          adAccountId: brand.adAccountId,
+          adAccountId: adAccountId,
           accessToken: token,
           name: `[REVIEW] ${videoName}`,
           dailyBudgetCents: params.dailyBudgetCents,
@@ -108,10 +115,10 @@ export async function POST(req: Request) {
 
         send({ type: "video", videoName, step: "Création de l'ensemble de publicités…" });
         const adsetId = await createAdSet({
-          adAccountId: brand.adAccountId,
+          adAccountId: adAccountId,
           accessToken: token,
           campaignId,
-          pixelId: brand.pixelId,
+          pixelId,
           name: videoName,
           countries: ["DZ"],
           ageMin: params.ageMin,
@@ -128,7 +135,7 @@ export async function POST(req: Request) {
         send({ type: "video", videoName, step: "Création du visuel publicitaire…" });
         const perVideoUrl = params.urlMap?.[videoName] ?? params.landingUrl ?? "";
         const creativeId = await createVideoCreative({
-          adAccountId: brand.adAccountId,
+          adAccountId: adAccountId,
           accessToken: token,
           pageId: brand.pageId,
           videoId,
@@ -141,14 +148,14 @@ export async function POST(req: Request) {
 
         send({ type: "video", videoName, step: "Création de la publicité…" });
         await createAd({
-          adAccountId: brand.adAccountId,
+          adAccountId: adAccountId,
           accessToken: token,
           adsetId,
           creativeId,
           name: videoName,
         });
 
-        send({ type: "video-done", videoName, campaignId, adAccountId: brand.adAccountId });
+        send({ type: "video-done", videoName, campaignId, adAccountId: adAccountId });
       } catch (e) {
         send({ type: "video-error", videoName, error: errMsg(e) });
       } finally {

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { Redis } from "@upstash/redis";
 import { listUsers } from "@/lib/users";
 import { getBrandWithToken, listBrandsPublic } from "@/lib/brands";
-import { fetchCampaignInsights } from "@/lib/meta/insights";
+import { fetchCampaignInsightsAllAccounts } from "@/lib/meta/insights";
 import {
   adviceFor,
   buildTelegramMessage,
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       const brand = await getBrandWithToken(brandId);
       if (!brand?.accessToken) continue;
       try {
-        const insights = await fetchCampaignInsights(brand);
+        const { rows: insights } = await fetchCampaignInsightsAllAccounts(brand);
         const high = insights.filter(isHighCpa);
         const fresh: HighCpaRow[] = [];
         for (const r of high) {

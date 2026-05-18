@@ -34,11 +34,10 @@ export async function POST(req: Request) {
     name: (body.name ?? "").trim(),
     adAccountId: (body.adAccountId ?? "").trim().replace(/^act_/, ""),
     pageId: (body.pageId ?? "").trim(),
-    pixelId: (body.pixelId ?? "").trim(),
     accessToken,
   };
 
-  if (!brand.name || !brand.adAccountId || !brand.pageId || !brand.pixelId) {
+  if (!brand.name || !brand.adAccountId || !brand.pageId) {
     return NextResponse.json({ error: "Tous les champs sont requis" }, { status: 400 });
   }
   if (!brand.accessToken) {
