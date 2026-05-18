@@ -3,8 +3,8 @@ import { ASSISTANT_TOOL_DECLARATIONS } from "./tools";
 import { buildAdminAllBrandsInstruction, buildSystemInstruction } from "./system-prompt";
 import type { Brand } from "@/lib/brands";
 
-export const ASSISTANT_MODEL = "gemini-3-pro";
-export const ASSISTANT_TITLE_MODEL = "gemini-3-flash";
+export const ASSISTANT_MODEL = "gemini-3-pro-preview";
+export const ASSISTANT_TITLE_MODEL = "gemini-2.5-flash";
 
 function client(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -32,6 +32,7 @@ export async function streamAssistant(contents: Content[], ctx: AssistantBrandCo
         { functionDeclarations: ASSISTANT_TOOL_DECLARATIONS },
         { googleSearch: {} },
       ],
+      toolConfig: { includeServerSideToolInvocations: true },
       temperature: 0.6,
       thinkingConfig: { thinkingBudget: -1 },
     },

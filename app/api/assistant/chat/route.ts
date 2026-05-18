@@ -92,15 +92,16 @@ export async function POST(req: Request) {
             const cand = chunk.candidates?.[0];
             const parts = cand?.content?.parts ?? [];
             for (const p of parts) {
-              if (p.text) {
+              // Preserve the full part (including any thoughtSignature on
+              // thought, text, or functionCall parts) — Gemini 3 requires it.
+              assistantParts.push(p);
+              if (p.text && !p.thought) {
                 send({ type: "text", delta: p.text });
-                assistantParts.push({ text: p.text });
               }
               if (p.functionCall) {
                 const name = p.functionCall.name ?? "";
                 const args = (p.functionCall.args ?? {}) as Record<string, unknown>;
                 pendingFnCalls.push({ name, args, id: p.functionCall.id });
-                assistantParts.push({ functionCall: p.functionCall });
                 send({ type: "tool", name, args, status: "running" });
               }
             }
